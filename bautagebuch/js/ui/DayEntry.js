@@ -8,6 +8,8 @@ import { groupFotosByDay, formatTag } from '../lib/days.js';
 import { weatherText } from '../lib/weather.js';
 import { Attendance } from './Attendance.js';
 import { ShareDialog, shareFotos, blobLoader } from './Share.js';
+import { FotoAnsicht } from './FotoAnsicht.js';
+import { History } from './History.js';
 
 export const ABSCHNITTE = [
   ['arbeiten', 'Arbeiten'], ['lieferungen', 'Lieferungen'], ['probleme', 'Probleme / Entscheidungen / Absprachen'],
@@ -16,6 +18,7 @@ export const ABSCHNITTE = [
 export function DayEntry({ datum, kopf = null }) {
   const api = useApi();
   const [teilen, setTeilen] = useState(false);
+  const [offen, setOffen] = useState(null);
   const d = useLoad(async () => {
     const tag = await findTag(api, datum);
     const [abschnitte, anwesenheit, personen, firmen, gewerke, fotos, stellen] = await Promise.all([
@@ -54,14 +57,16 @@ export function DayEntry({ datum, kopf = null }) {
     ${ABSCHNITTE.map(([typ, titel]) => html`<${Abschnitt} typ=${typ} titel=${titel} personen=${personen}
       eintraege=${abschnitte.filter((a) => a.typ === typ)}
       onAdd=${async (text) => { await api.insert('tag_abschnitte', { tag_id: await tagId(), typ, text }); d.reload(); }}
-      onEdit=${async (a, text) => { await api.update('tag_abschnitte', a.id, { text }); d.reload(); }} />`)}
+      onEdit=${async (a, text) => { await api.update('tag_abschnitte', a.id, { text }); d.reload(); }}
+      onDelete=${async (a) => { await api.softDelete('tag_abschnitte', a.id); d.reload(); }} />`)}
 
     <section class="karte"><div class="zeile"><h3>📷 ${fotos.length} ${fotos.length === 1 ? 'Foto' : 'Fotos'}</h3>
       ${fotos.length > 0 && html`<button onClick=${() => setTeilen(true)}>Teilen…</button>`}</div>
       ${teilen && html`<${ShareDialog} fotos=${fotos} thumb=${(f) => urls[f.key_vorschau] ?? ''} onClose=${() => setTeilen(false)}
         onShare=${(auswahl) => shareFotos(auswahl, { getBlob: blobLoader(api) })} />`}
       ${gruppen.map((g) => html`<div><h4>${stellenName(g.stelle_id)}</h4>
-        <div class="thumbs">${g.fotos.map((f) => html`<img src=${urls[f.key_vorschau] ?? ''} alt="" loading="lazy" />`)}</div></div>`)}
+        <div class="thumbs">${g.fotos.map((f) => html`<img src=${urls[f.key_vorschau] ?? ''} alt="" loading="lazy" onClick=${() => setOffen(f)} />`)}</div></div>`)}
+      ${offen && html`<${FotoAnsicht} foto=${offen} gewerke=${gewerke} onClose=${() => setOffen(null)} onChanged=${d.reload} />`}
     </section>
   </article>`;
 }
@@ -76,13 +81,15 @@ function Wetter({ tag, onSave }) {
   </p>`;
 }
 
-function Abschnitt({ typ, titel, eintraege, personen, onAdd, onEdit }) {
+function Abschnitt({ typ, titel, eintraege, personen, onAdd, onEdit, onDelete }) {
   const [neu, setNeu] = useState('');
   const [bearbeite, setBearbeite] = useState(null);
   return html`<section class="karte abschnitt"><h3>${titel}</h3>
     ${eintraege.map((a) => bearbeite?.id === a.id
       ? html`<div><textarea value=${bearbeite.text} onInput=${(e) => setBearbeite({ ...bearbeite, text: e.target.value })} />
-          <button onClick=${async () => { await onEdit(a, bearbeite.text); setBearbeite(null); }}>Fertig</button></div>`
+          <button onClick=${async () => { await onEdit(a, bearbeite.text); setBearbeite(null); }}>Fertig</button>
+          <button onClick=${async () => { await onDelete(a); setBearbeite(null); }}>Löschen</button>
+          <details><summary>Verlauf</summary><${History} id=${a.id} feld="text" /></details></div>`
       : html`<p class="eintrag" onClick=${() => setBearbeite({ id: a.id, text: a.text })}>${a.text}
           <small class="hinweis"> — ${nameOf(a.erstellt_von, personen)}${a.geaendert_von && a.geaendert_von !== a.erstellt_von ? `, bearbeitet von ${nameOf(a.geaendert_von, personen)}` : ''}</small></p>`)}
     <textarea name=${typ} placeholder="Ergänzen …" value=${neu} onInput=${(e) => setNeu(e.target.value)} />

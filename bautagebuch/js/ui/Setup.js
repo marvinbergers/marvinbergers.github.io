@@ -22,7 +22,7 @@ export function Setup({ extra = null }) {
   if (!d.data) return html`<p class="hinweis">Lädt …</p>`;
   const r = d.reload;
   return html`<div class="setup">
-    <h2>Einrichtung</h2>
+    <div class="zeile"><h2>Einrichtung</h2><a class="btn" href="#/papierkorb">🗑 Papierkorb</a></div>
     ${extra}
     <h3>Etagen</h3>
     ${d.data.etagen.map((e) => html`<${EtageKarte} key=${e.id} api=${api} etage=${e} raeume=${d.data.raeume.filter((x) => x.etage_id === e.id)} reload=${r} />`)}

@@ -10,6 +10,7 @@ import { mergeStellen } from '../data/actions.js';
 import { useCapture } from './capture.js';
 import { ShareDialog, shareFotos, blobLoader } from './Share.js';
 import { Checkliste, checklisten } from './Checkliste.js';
+import { FotoAnsicht } from './FotoAnsicht.js';
 
 const LS = 'bautagebuch-etage';
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
@@ -69,7 +70,7 @@ export function GrundrissView() {
     </div>
     ${auswahl && html`<${StelleMitFotos} api=${api} stelle=${auswahl} fotos=${fotos.filter((f) => f.stelle_id === auswahl.id)}
       phasen=${basis.data.phasen} gewerke=${basis.data.gewerke} stellen=${stellen} capture=${capture} listen=${basis.data.listen} alleFotos=${fotos}
-      onClose=${() => setAuswahl(null)}
+      onClose=${() => setAuswahl(null)} onChanged=${() => daten.reload()}
       onRename=${async (name) => { const s = await api.update('stellen', auswahl.id, { name }); setAuswahl(s); daten.reload(); }}
       onMove=${(s) => { setVerschiebe(s); setAuswahl(null); }}
       onMerge=${async (ziel) => { await mergeStellen(api, auswahl.id, ziel); setAuswahl(stellen.find((s) => s.id === ziel)); daten.reload(); }} />`}
@@ -80,13 +81,15 @@ export function GrundrissView() {
 function StelleMitFotos({ api, fotos, capture, stelle, gewerke, phasen, listen, alleFotos, ...rest }) {
   const urls = useUrls(api, fotos.map((f) => f.key_vorschau));
   const [teilen, setTeilen] = useState(false);
+  const [offen, setOffen] = useState(null);
   const thumb = (f) => urls[f.key_vorschau] ?? '';
   const extra = html`<div class="knopfgitter klein">
       ${fotos.length > 0 && html`<button onClick=${() => setTeilen(true)}>Teilen…</button>`}</div>
     <${Checkliste} listen=${listen} fotos=${alleFotos}
       onFoto=${(checkpunkt) => capture.atStelle(stelle, { gewerke, phasen, fotos, checkpunkt })} />
     ${teilen && html`<${ShareDialog} fotos=${fotos} thumb=${thumb} onClose=${() => setTeilen(false)}
-      onShare=${(auswahl) => shareFotos(auswahl, { getBlob: blobLoader(api) })} />`}`;
+      onShare=${(auswahl) => shareFotos(auswahl, { getBlob: blobLoader(api) })} />`}
+    ${offen && html`<${FotoAnsicht} foto=${offen} gewerke=${gewerke} phasen=${phasen} onClose=${() => setOffen(null)} onChanged=${rest.onChanged} />`}`;
   return html`<${StellePanel} stelle=${stelle} fotos=${fotos} phasen=${phasen} thumb=${thumb}
-    onPhoto=${() => capture.atStelle(stelle, { gewerke, phasen, fotos })} extra=${extra} ...${rest} />`;
+    onPhoto=${() => capture.atStelle(stelle, { gewerke, phasen, fotos })} onOpenFoto=${setOffen} extra=${extra} ...${rest} />`;
 }

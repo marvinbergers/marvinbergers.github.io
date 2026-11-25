@@ -87,3 +87,6 @@ a.btn.primaer { background: var(--accent); color: var(--accent-fg); border-color
 .zeile.neu { flex-wrap: wrap; } .zeile.neu input { flex: 1 1 140px; }
 .formular input { margin-bottom: 6px; } .check { display: flex; gap: 8px; align-items: center; } .check input { width: auto; min-height: 0; }
 .einstellungen { width: 48px; justify-content: center; padding: 0; }
+.foto-ansicht .gross-bild { width: 100%; border-radius: 10px; margin: 8px 0; }
+.verlauf q { font-style: italic; }
+.thumbs img { cursor: pointer; }
