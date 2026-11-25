@@ -29,8 +29,8 @@ export function pickFile({ kamera = true, mehrere = false } = {}) {
   });
 }
 
-/** Verarbeitet ein Foto und legt es in die Warteschlange. Liefert den Datensatz. */
-export async function enqueuePhoto(api, file, felder) {
+/** Verarbeitet ein Foto: verkleinern, Datum, Fingerabdruck, Speicherschlüssel. */
+export async function preparePhoto(api, file, felder = {}) {
   const p = await (api.processImage ?? defaultProcess)(file);
   const id = uuid();
   const keys = fotoKeys(id, p.aufgenommenAm);
@@ -40,9 +40,15 @@ export async function enqueuePhoto(api, file, felder) {
     tag: berlinDate(p.aufgenommenAm), key_bild: keys.bild, key_vorschau: keys.vorschau, sha256: p.sha256,
     breite: p.breite, hoehe: p.hoehe,
   };
-  await api.queue.add({ typ: 'foto', fotoId: id, bild: p.bild, vorschau: p.vorschau, datensatz });
+  return { typ: 'foto', fotoId: id, bild: p.bild, vorschau: p.vorschau, datensatz };
+}
+
+/** Verarbeitet ein Foto und legt es in die Warteschlange. Liefert den Datensatz. */
+export async function enqueuePhoto(api, file, felder) {
+  const item = await preparePhoto(api, file, felder);
+  await api.queue.add(item);
   api.syncNow?.();
-  return datensatz;
+  return item.datensatz;
 }
 
 /** Aufnahme-Ablauf für den Grundriss: liefert Auslöser und das Overlay. */

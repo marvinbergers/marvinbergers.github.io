@@ -1,8 +1,9 @@
-// Service Worker: hält die App-Hülle offline verfügbar.
+// Service Worker: hält die App-Hülle offline verfügbar und nimmt geteilte Fotos (Android) an.
+importScripts('js/lib/share-target.js');
 const CACHE = 'bautagebuch-v1';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'js/main.js', 'js/config.js',
-  'js/vendor/preact.js', 'js/vendor/htm.js', 'js/vendor/supabase.js', 'js/vendor/exifr.js', 'js/vendor/fflate.js',
+  'js/vendor/preact.js', 'js/vendor/htm.js', 'js/vendor/supabase.js', 'js/vendor/exifr.js', 'js/vendor/fflate.js', 'js/lib/share-target.js',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
 
@@ -15,6 +16,10 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+  if (e.request.method === 'POST' && url.pathname.endsWith('/bautagebuch/teilen')) {
+    e.respondWith(self.btShare.handleShare(e.request, self.btShare.addSharedIdb));
+    return;
+  }
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   // Netz zuerst, damit Updates ankommen; offline aus dem Cache.
   e.respondWith(fetch(e.request).then((res) => {

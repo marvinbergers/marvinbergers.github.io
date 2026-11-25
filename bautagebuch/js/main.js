@@ -2,7 +2,8 @@ import { render } from './vendor/preact.js';
 import { html } from './vendor/htm.js';
 import { useState, useEffect } from './vendor/preact.js';
 import { SUPABASE_URL } from './config.js';
-import { ApiContext } from './data/api.js';
+import { ApiContext, useApi } from './data/api.js';
+import { imEingang } from './data/inbox.js';
 import { openQueue } from './lib/queue.js';
 import { SyncBadge } from './ui/SyncBadge.js';
 
@@ -24,13 +25,19 @@ export function currentRoute() {
 
 export function navigate(route) { location.hash = `#/${route}`; }
 
-export function Shell({ badges = {}, warteschlange = 0, demo = false }) {
+export function Shell({ warteschlange = 0, demo = false }) {
+  const api = useApi();
   const [route, setRoute] = useState(currentRoute());
+  const [badges, setBadges] = useState({});
   useEffect(() => {
     const f = () => setRoute(currentRoute());
     window.addEventListener('hashchange', f);
     return () => window.removeEventListener('hashchange', f);
   }, []);
+  // Zahl im Menü: Fotos im Eingang. Neu berechnet bei jedem Seitenwechsel und nach Uploads.
+  useEffect(() => {
+    api?.list('fotos').then((fotos) => setBadges({ eingang: fotos.filter(imEingang).length })).catch(() => {});
+  }, [route, warteschlange]);
   const View = views[route];
   return html`
     ${demo && html`<div class="demo">Vorschau ohne Server – nichts wird gespeichert.</div>`}

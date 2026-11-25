@@ -61,3 +61,8 @@ h1, h2, h3 { margin: 8px 0; }
 .picker textarea { margin-top: 10px; min-height: 64px; }
 button.link { border: 0; background: none; color: var(--accent); min-height: 40px; padding: 0; margin-top: 8px; }
 .dialog { max-height: 80vh; overflow: auto; }
+.thumbs.auswahl .thumb { position: relative; padding: 0; min-height: 0; border: 3px solid transparent; border-radius: 10px; overflow: hidden; aspect-ratio: 1; }
+.thumbs.auswahl .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.thumbs.auswahl .thumb[aria-pressed="true"] { border-color: var(--accent); }
+.marke { position: absolute; left: 4px; bottom: 4px; font-size: 11px; background: #000a; color: #fff; padding: 1px 5px; border-radius: 6px; }
+.schwebend { position: fixed; left: 16px; right: 16px; width: auto; bottom: calc(var(--tab-h) + 12px); z-index: 15; }
