@@ -18,3 +18,11 @@ export function demoSeed() {
     firmen: [{ name: 'Elektro Muster GmbH', gewerk_id: 'g1' }],
   };
 }
+
+/** Erfundener Beispiel-Grundriss als SVG (4 Räume). */
+export function demoBlobs() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700"><rect width="1000" height="700" fill="#fff"/>
+<g fill="none" stroke="#333" stroke-width="10"><rect x="20" y="20" width="960" height="660"/><path d="M380 20v300M20 320h960M380 420v260M600 320v-120"/></g>
+<g font-family="sans-serif" font-size="34" fill="#777"><text x="120" y="190">Bad</text><text x="640" y="190">Küche</text><text x="120" y="540">Flur</text><text x="640" y="540">Wohnen</text></g></svg>`;
+  return { 'plaene/demo-eg.svg': new Blob([svg], { type: 'image/svg+xml' }) };
+}

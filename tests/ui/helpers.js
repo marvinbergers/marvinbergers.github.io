@@ -1,6 +1,12 @@
 import { render, options } from '../../bautagebuch/js/vendor/preact.js';
 // Effekte in Tests sofort statt nach dem nächsten Frame ausführen.
 options.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+// jsdom kennt keine onpointer*-Eigenschaften; ohne sie würde Preact falsche Ereignisnamen binden.
+if (typeof HTMLElement !== 'undefined') {
+  for (const n of ['onpointerdown', 'onpointermove', 'onpointerup', 'onpointercancel']) {
+    if (!(n in HTMLElement.prototype)) Object.defineProperty(HTMLElement.prototype, n, { value: null, writable: true });
+  }
+}
 import { html } from '../../bautagebuch/js/vendor/htm.js';
 export { html };
 

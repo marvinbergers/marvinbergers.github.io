@@ -48,8 +48,8 @@ async function start(root) {
   const demo = !SUPABASE_URL || new URLSearchParams(location.search).has('demo');
   if (demo) {
     const { createMemoryApi } = await import('./data/memory.js');
-    const { demoSeed } = await import('./data/demo.js');
-    const api = createMemoryApi({ queue, seed: demoSeed() });
+    const { demoSeed, demoBlobs } = await import('./data/demo.js');
+    const api = createMemoryApi({ queue, seed: demoSeed(), seedBlobs: demoBlobs() });
     window.__btApi = api;
     render(html`<${ApiContext.Provider} value=${api}><${Shell} demo=${true} /><//>`, root);
     return;

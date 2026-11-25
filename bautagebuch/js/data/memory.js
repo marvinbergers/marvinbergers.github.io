@@ -5,9 +5,9 @@ const PHASEN = ['Bestand vor Umbau', 'Abbruch', 'Rohbau', 'Installation', 'Versc
 const uuid = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
 const TAG_MS = 86_400_000;
 
-export function createMemoryApi({ queue, me = { id: 'u1', email: 'demo@example.org', name: 'Demo' }, seed = {}, now = () => new Date() } = {}) {
+export function createMemoryApi({ queue, me = { id: 'u1', email: 'demo@example.org', name: 'Demo' }, seed = {}, seedBlobs = {}, now = () => new Date() } = {}) {
   const tables = new Map();
-  const blobs = new Map();
+  const blobs = new Map(Object.entries(seedBlobs));
   const history = [];
   const t = (name) => { if (!tables.has(name)) tables.set(name, []); return tables.get(name); };
   t('phasen').push(...PHASEN.map((name, i) => ({ id: `p${i + 1}`, name, sortierung: i + 1 })));
