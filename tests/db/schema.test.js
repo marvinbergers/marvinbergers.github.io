@@ -112,3 +112,40 @@ describe('Checkliste', () => {
     });
   });
 });
+
+describe('Räume mit Flächen und Wand-Stellen (0006)', () => {
+  it('Raum nur mit Flächen; eine aktive Stelle je Raum und Seite', async () => {
+    await als(db, FAMILIE, async (tx) => {
+      const e = (await tx.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
+      const r = (await tx.query(`insert into raeume(etage_id, name, flaechen) values ($1, 'Bad', '[{"x1":0,"y1":0,"x2":20,"y2":30}]') returning id`, [e])).rows[0].id;
+      const s = (await tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'Bad – Nordwand', $2, 'oben') returning id`, [e, r])).rows[0].id;
+      await tx.query('savepoint a');
+      await expect(tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'x', $2, 'oben')`, [e, r])).rejects.toMatchObject({ code: '23505' });
+      await tx.query('rollback to savepoint a');
+      await expect(tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'x', $2, 'seitlich')`, [e, r])).rejects.toThrow();
+      await tx.query('rollback to savepoint a');
+      await tx.query(`update stellen set geloescht_am = now() where id = $1`, [s]);
+      await tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'Bad – Nordwand', $2, 'oben')`, [e, r]);
+      expect((await tx.query(`select flaechen from raeume_aktiv`)).rows[0].flaechen[0].x2).toBe(20);
+    });
+  });
+});
+
+describe('Altbestand (gezogene Stellen) wird bei 0006 umgestellt', () => {
+  it('Fotos in den Eingang, alte Stellen in den Papierkorb', async () => {
+    const { PGlite } = await import('@electric-sql/pglite');
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const alt = new PGlite();
+    await alt.exec(`create role anon nologin; create role authenticated nologin; create schema auth;
+      create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+      create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;`);
+    const dateien = readdirSync('supabase/migrations').sort();
+    for (const f of dateien.filter((f) => f < '0006')) await alt.exec(readFileSync(`supabase/migrations/${f}`, 'utf8'));
+    const e = (await alt.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
+    const s = (await alt.query(`insert into stellen(etage_id, name, x, y, richtung_grad) values ($1, 'Bad – Ostwand', 1, 1, 90) returning id`, [e])).rows[0].id;
+    await alt.query(`insert into fotos(stelle_id, sha256, aufgenommen_am, tag) values ($1, 'z', now(), '2026-11-25')`, [s]);
+    for (const f of dateien.filter((f) => f >= '0006')) await alt.exec(readFileSync(`supabase/migrations/${f}`, 'utf8'));
+    expect((await alt.query(`select stelle_id from fotos`)).rows[0].stelle_id).toBeNull();
+    expect((await alt.query(`select geloescht_am from stellen`)).rows[0].geloescht_am).not.toBeNull();
+  });
+});
