@@ -65,8 +65,13 @@ function EtageKarte({ api, etage, raeume, reload }) {
   const setPp = (v) => { ppRef.current = v; setPpState(v); };
   const urls = useUrls(api, [etage.plan_key, etage.bestand_key]);
 
+  const [fehler, setFehler] = useState('');
   const hochladen = (feld) => async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
+    setFehler('');
+    try { await hochladenIntern(feld, file); } catch (err) { setFehler(`Hochladen fehlgeschlagen: ${err.message ?? err}`); }
+  };
+  const hochladenIntern = async (feld, file) => {
     const key = `plaene/${etage.id}-${feld === 'bestand' ? 'bestand-' : ''}${safeName(file.name)}`;
     await api.put(key, file, file.type || 'image/png');
     if (feld === 'plan') { const m = await bildMasse(api, file); await api.update('etagen', etage.id, { plan_key: key, plan_breite: m.width, plan_hoehe: m.height }); }
@@ -91,6 +96,7 @@ function EtageKarte({ api, etage, raeume, reload }) {
 
   return html`<div class="karte etage">
     <b>${etage.name}</b>
+    ${fehler && html`<p class="fehler" role="alert">${fehler}</p>`}
     <label>Grundriss (Bild)<input type="file" accept="image/*" name=${`plan-${etage.id}`} onChange=${hochladen('plan')} /></label>
     <label>Nordrichtung: ${etage.nord_grad ?? 0}° <span class="nordpfeil" style=${`transform: rotate(${etage.nord_grad ?? 0}deg)`}>⬆︎N</span>
       <input type="range" min="0" max="359" name=${`nord-${etage.id}`} value=${etage.nord_grad ?? 0}

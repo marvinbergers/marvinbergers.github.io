@@ -12,6 +12,7 @@ export function FloorPlan({
   kopf = null,
 }) {
   const inhalt = useRef(null);
+  const rahmen = useRef(null);
   const pointer = useRef(new Map());
   const start = useRef(null);
   const pinch = useRef(null);
@@ -63,7 +64,13 @@ export function FloorPlan({
     setNeu({ ...pos, name: suggestName(p, richtung, etage?.nord_grad ?? 0, raeume) });
   }
 
-  const zoom = (f) => setAnsicht((a) => ({ ...a, s: Math.min(6, Math.max(1, a.s * f)) }));
+  // Knöpfe zoomen zur Mitte des sichtbaren Ausschnitts hin.
+  const zoom = (f) => setAnsicht((a) => {
+    const s = Math.min(6, Math.max(1, a.s * f));
+    const r = rahmen.current; const cx = (r?.clientWidth ?? 0) / 2; const cy = (r?.clientHeight ?? 0) / 2;
+    const k = s / a.s;
+    return s === 1 ? { s: 1, x: 0, y: 0 } : { s, x: cx - k * (cx - a.x), y: cy - k * (cy - a.y) };
+  });
 
   let bestandStil = '';
   if (bestand && etage?.bestand_passpunkte) {
@@ -81,7 +88,7 @@ export function FloorPlan({
       <button class="schnellfoto primaer" aria-label="Schnellfoto" onClick=${onQuickPhoto}>📷</button>
     </div>
     ${verschiebe && html`<p class="hinweis">Neue Position: auf den Plan drücken und in Blickrichtung ziehen.</p>`}
-    <div class="plan-rahmen">
+    <div class="plan-rahmen" ref=${rahmen}>
       <div class="plan-inhalt" ref=${inhalt}
         style=${`transform: translate(${ansicht.x}px, ${ansicht.y}px) scale(${ansicht.s}); aspect-ratio: ${aspect};`}
         onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}>
@@ -89,7 +96,7 @@ export function FloorPlan({
                   : html`<p class="hinweis">Noch kein Grundriss für diese Etage. Unter Einrichtung hochladen.</p>`}
         ${bestand && bestandUrl && html`<img class="plan-bestand" src=${bestandUrl} alt="Bestandsplan" style=${bestandStil} draggable="false" />`}
         ${stellen.map((s) => html`<button class="stelle" data-stelle=${s.id} title=${s.name}
-            style=${`left:${s.x}%;top:${s.y}%`} onClick=${() => onSelectStelle(s)}>
+            style=${`left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) scale(${Math.round((1 / ansicht.s) * 1e4) / 1e4})`} onClick=${() => onSelectStelle(s)}>
             <span class="pfeil" style=${`transform: rotate(${s.richtung_grad}deg)`}>▲</span></button>`)}
       </div>
     </div>

@@ -65,6 +65,17 @@ describe('FloorPlan', () => {
     expect(cb.onSelectStelle).toHaveBeenCalledWith(stellen[0]);
   });
 
+  it('Stellen bleiben beim Zoomen gleich groß auf dem Bildschirm', async () => {
+    const { el } = await setup();
+    const vorher = el.querySelector('[data-stelle="s1"]').getAttribute('style');
+    expect(vorher).toMatch(/scale\(1\)/);
+    await click(el.querySelector('button[aria-label="Vergrößern"]'));
+    await click(el.querySelector('button[aria-label="Vergrößern"]'));
+    const nachher = el.querySelector('[data-stelle="s1"]').getAttribute('style');
+    const f = Number(nachher.match(/scale\(([\d.]+)\)/)[1]);
+    expect(f).toBeCloseTo(1 / 1.96, 3); // Gegenskalierung zum Zoom 1,4 × 1,4
+  });
+
   it('Schnellfoto-Knopf ist immer da', async () => {
     const { el, cb } = await setup();
     await click(el.querySelector('button.schnellfoto'));

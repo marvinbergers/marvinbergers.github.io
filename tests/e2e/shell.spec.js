@@ -8,7 +8,7 @@ describe('App-Hülle', () => {
     const { browser, page } = await openPage();
     const fehler = [];
     page.on('pageerror', (e) => fehler.push(e.message));
-    await page.goto(BASE);
+    await page.goto(BASE + '?demo'); // ohne ?demo würde die echte Anmeldung erscheinen
     await page.waitForSelector('nav.tabs a');
     expect(fehler).toEqual([]);
     expect(await page.locator('.demo').textContent()).toContain('Vorschau');
