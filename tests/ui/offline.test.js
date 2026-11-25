@@ -182,3 +182,19 @@ describe('Eingang: Wand wählen offline (Review Räume I3)', () => {
     expect(el.textContent).toMatch(/Keine Verbindung/);
   });
 });
+
+describe('Review Vieleck: Sync zu verschwundener Wand', () => {
+  it('Wand gelöscht und unbekannt → Foto in den Eingang statt an eine unsichtbare Wand', async () => {
+    const { syncOnce } = await import('../../bautagebuch/js/data/sync.js');
+    const queue = await openQueue(`v-${Math.random()}`);
+    const api = createMemoryApi({ queue });
+    await queue.add({ typ: 'foto', fotoId: 'f', bild: new Blob(['b']), vorschau: new Blob(['v']),
+      datensatz: { id: 'f', sha256: 'x', key_bild: 'fotos/f.jpg', key_vorschau: 'fotos/f_v.jpg', stelle_id: null,
+        wand: { etage_id: 'e1', raum_id: 'weg', raum_name: 'Weg', seite: 'wand', kante: 'z' } } });
+    await syncOnce({ queue, sign: async (ops) => ops.map((o) => o.key), upload: async () => {}, insertFoto: (d) => api.insert('fotos', d),
+      ensureWand: async () => null });
+    const [foto] = await api.list('fotos');
+    expect(foto.stelle_id).toBeNull();
+    expect(await queue.count()).toBe(0);
+  });
+});

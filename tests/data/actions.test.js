@@ -69,3 +69,38 @@ describe('speichereRaum', () => {
     expect(r.pruefen).toBe(false);
   });
 });
+
+describe('Review Vieleck: keine Fotos an verschwundenen Wänden', () => {
+  it('speichereRaum zieht Fotos um, bevor die Form gespeichert wird (Netzabbruch danach schadet nicht)', async () => {
+    const api = createMemoryApi({ seed: { raeume: [raum], stellen: [{ id: 'sb', raum_id: 'r1', seite: 'wand', kante: 'b' }], fotos: [{ id: 'f', stelle_id: 'sb', sha256: '1' }] } });
+    const upd = api.update;
+    api.update = async (t, id, p) => { if (t === 'raeume' && p.ecken) throw new TypeError('Failed to fetch'); return upd(t, id, p); };
+    await expect(speichereRaum(api, etage, raum, [P('a', 10, 10), P('c', 30, 30), P('d', 10, 30)], [{ von: 'b', nach: 'a' }])).rejects.toThrow();
+    const wandA = (await api.list('stellen', { kante: 'a' }))[0];
+    expect((await api.list('fotos'))[0].stelle_id).toBe(wandA.id); // schon an sichtbarer Wand
+  });
+
+  it('gelöschte Ecke wird gemerkt: spätere Fotos für die alte Wand landen auf der zusammengelegten', async () => {
+    const api = createMemoryApi({ seed: { raeume: [raum] } });
+    await speichereRaum(api, etage, raum, [P('a', 10, 10), P('c', 30, 30), P('d', 10, 30)], [{ von: 'b', nach: 'a' }]);
+    const frisch = (await api.list('raeume'))[0];
+    expect(frisch.kanten_alias).toEqual({ b: 'a' });
+    // veraltetes Gerät kennt noch Ecke b:
+    const st = await ensureWand(api, etage, raum, { seite: 'wand', kante: 'b' });
+    expect(st.kante).toBe('a');
+  });
+
+  it('Ketten: b → a, danach a → d', async () => {
+    const api = createMemoryApi({ seed: { raeume: [raum] } });
+    await speichereRaum(api, etage, raum, [P('a', 10, 10), P('c', 30, 30), P('d', 10, 30)], [{ von: 'b', nach: 'a' }]);
+    const r1 = (await api.list('raeume'))[0];
+    await speichereRaum(api, etage, r1, [P('c', 30, 30), P('d', 10, 30), P('e', 5, 5)], [{ von: 'a', nach: 'd' }]);
+    expect((await ensureWand(api, etage, raum, { seite: 'wand', kante: 'b' })).kante).toBe('d');
+  });
+
+  it('Raum inzwischen auf anderem Gerät geändert → Speichern wird abgelehnt', async () => {
+    const api = createMemoryApi({ seed: { raeume: [raum] } });
+    await api.update('raeume', 'r1', { ecken: [...raum.ecken, P('n', 5, 20)] }); // anderes Gerät
+    await expect(speichereRaum(api, etage, raum, raum.ecken.slice(0, 3), [])).rejects.toThrow(/inzwischen.*geändert/);
+  });
+});

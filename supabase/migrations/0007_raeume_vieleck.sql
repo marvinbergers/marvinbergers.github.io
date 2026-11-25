@@ -1,6 +1,8 @@
 -- Räume als Vieleck mit festen Eckpunkt-Kennungen; jede Wandlinie ist eine eigene Wand.
 alter table raeume add column ecken jsonb;
 alter table raeume add column pruefen boolean not null default false;
+-- Gelöschte Ecken: alte Kanten-id → Kante, auf die ihre Fotos umgezogen sind (für Geräte mit veraltetem Stand).
+alter table raeume add column kanten_alias jsonb not null default '{}'::jsonb;
 alter table stellen add column kante text;
 
 -- Bisherige Rechteck-Räume umstellen: Ecken a (oben links), b, c, d im Uhrzeigersinn.
@@ -31,6 +33,18 @@ alter table stellen add constraint stellen_seite_check check (seite in ('wand', 
 alter table stellen add constraint stellen_kante_check check ((seite = 'wand') = (kante is not null) or seite is null);
 create unique index stellen_raum_seite_kante on stellen(raum_id, seite, coalesce(kante, ''))
   where geloescht_am is null and raum_id is not null;
+
+-- Sicherheitsnetz: Ein Foto, das auf eine Wand im Papierkorb zeigt (z. B. von einem Gerät mit veraltetem Stand),
+-- kommt in den Eingang statt unsichtbar zu werden.
+create function foto_stelle_pruefen() returns trigger language plpgsql as $$
+begin
+  if new.stelle_id is not null and exists (select 1 from stellen where id = new.stelle_id and geloescht_am is not null) then
+    new.stelle_id := null;
+  end if;
+  return new;
+end $$;
+create trigger fotos_stelle_pruefen before insert or update of stelle_id on fotos
+  for each row execute function foto_stelle_pruefen();
 
 drop view raeume_aktiv;
 create view raeume_aktiv with (security_invoker = true) as select * from raeume where geloescht_am is null;

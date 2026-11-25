@@ -194,3 +194,15 @@ describe('0007: Räume als Vieleck', () => {
     });
   });
 });
+
+describe('Sicherheitsnetz: Foto an gelöschter Wand', () => {
+  it('Foto, das auf eine Wand im Papierkorb zeigt, landet im Eingang', async () => {
+    await als(db, FAMILIE, async (tx) => {
+      const e = (await tx.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
+      const s = (await tx.query(`insert into stellen(etage_id, name) values ($1,'alt') returning id`, [e])).rows[0].id;
+      await tx.query(`update stellen set geloescht_am = now() where id = $1`, [s]);
+      await tx.query(`insert into fotos(stelle_id, sha256, aufgenommen_am, tag) values ($1,'netz',now(),'2026-11-26')`, [s]);
+      expect((await tx.query(`select stelle_id from fotos where sha256 = 'netz'`)).rows[0].stelle_id).toBeNull();
+    });
+  });
+});

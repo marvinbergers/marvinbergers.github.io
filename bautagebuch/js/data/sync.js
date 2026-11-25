@@ -18,7 +18,8 @@ export async function syncOnce({ queue, sign, upload, insertFoto, updateFoto = a
       if (d.wand) { // offline aufgenommen: Wand jetzt anlegen bzw. finden
         if (!ensureWand) throw new Error('Wand kann nicht angelegt werden');
         const { wand, ...rest } = d;
-        zeile = { ...rest, stelle_id: (await ensureWand(wand)).id };
+        const st = await ensureWand(wand); // null: Raum/Wand gibt es nicht mehr → Eingang
+        zeile = { ...rest, stelle_id: st?.id ?? null };
       }
       try {
         await insertFoto(zeile);
