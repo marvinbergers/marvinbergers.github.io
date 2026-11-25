@@ -86,3 +86,15 @@ describe('Einrichtung', () => {
     expect(e.wert).toEqual({ lat: 51.6, lon: 6.2 });
   });
 });
+
+describe('Checklisten pflegen', () => {
+  it('neue Checkliste mit Punkten (eine Zeile je Punkt) wird zur Standardvorlage ergänzt', async () => {
+    await setup();
+    await type(el.querySelector('input[name=checkliste-name]'), 'Dach');
+    await type(el.querySelector('textarea[name=checkliste-punkte]'), 'vor dem Eindecken\n\nnach dem Eindecken');
+    await click(byText(el, 'button', 'Checkliste anlegen'));
+    const e = (await api.list('einstellungen')).find((x) => x.schluessel === 'checklisten');
+    expect(e.wert.map((l) => l.name)).toEqual(['Bodenplatte', 'Dach']);
+    expect(e.wert[1].punkte).toEqual(['vor dem Eindecken', 'nach dem Eindecken']);
+  });
+});

@@ -4,6 +4,7 @@ import { useState, useRef } from '../vendor/preact.js';
 import { useApi } from '../data/api.js';
 import { useLoad, useUrls, sortiert } from './hooks.js';
 import { safeName } from '../lib/keys.js';
+import { checklisten } from './Checkliste.js';
 
 const kurzId = () => crypto.randomUUID().slice(0, 8);
 async function bildMasse(api, file) {
@@ -46,6 +47,7 @@ export function Setup({ extra = null }) {
     <${NeueZeile} felder=${[['name', 'Firma'], ['kontakt', 'Kontakt (optional)']]} knopf="Firma anlegen"
       onSave=${async (v) => { await api.insert('firmen', { name: v.name, kontakt: v.kontakt || null }); r(); }} />
 
+    <${Checklisten} api=${api} listen=${checklisten(d.data.einstellungen)} reload=${r} />
     <${Dokumente} api=${api} dokumente=${d.data.dokumente} reload=${r} />
     <${Koordinaten} api=${api} wert=${d.data.einstellungen.find((e) => e.schluessel === 'haus_koordinaten')?.wert} reload=${r} />
   </div>`;
@@ -154,6 +156,24 @@ function Koordinaten({ api, wert, reload }) {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       await api.upsert('einstellungen', { schluessel: 'haus_koordinaten', wert: { lat, lon } }, 'schluessel'); reload();
     }}>Koordinaten speichern</button></div>`;
+}
+
+function Checklisten({ api, listen, reload }) {
+  const [name, setName] = useState('');
+  const [punkte, setPunkte] = useState('');
+  const speichern = (wert) => api.upsert('einstellungen', { schluessel: 'checklisten', wert }, 'schluessel');
+  return html`<div><h3>Foto-Checklisten</h3>
+    <p class="hinweis">Kontrollpunkte, zu denen ein Foto gemacht werden soll (z. B. für den Statiker).</p>
+    ${listen.map((l, i) => html`<div class="karte"><div class="zeile"><b>${l.name}</b>
+      <button aria-label="Löschen" onClick=${async () => { await speichern(listen.filter((_, j) => j !== i)); reload(); }}>🗑</button></div>
+      <div class="hinweis">${l.punkte.join(' · ')}</div></div>`)}
+    <input name="checkliste-name" placeholder="Name (z. B. Dach)" value=${name} onInput=${(e) => setName(e.target.value)} />
+    <textarea name="checkliste-punkte" placeholder="Ein Punkt pro Zeile" value=${punkte} onInput=${(e) => setPunkte(e.target.value)} />
+    <button onClick=${async () => {
+      const p = punkte.split('\n').map((x) => x.trim()).filter(Boolean);
+      if (!name.trim() || !p.length) return;
+      await speichern([...listen, { name: name.trim(), punkte: p }]); setName(''); setPunkte(''); reload();
+    }}>Checkliste anlegen</button></div>`;
 }
 
 function Liste({ rows, text, onDelete }) {

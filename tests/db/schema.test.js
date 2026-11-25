@@ -102,3 +102,13 @@ describe('Personen ↔ Anmeldung', () => {
     });
   });
 });
+
+describe('Checkliste', () => {
+  it('Fotos können einem Kontrollpunkt zugeordnet werden (auch in der aktiv-Sicht)', async () => {
+    await als(db, FAMILIE, async (tx) => {
+      await tx.query(`insert into fotos(sha256, aufgenommen_am, tag, checkpunkt) values ('c', now(), '2027-03-17', 'Bodenplatte: vor dem Betonieren')`);
+      const r = await tx.query(`select checkpunkt from fotos_aktiv`);
+      expect(r.rows[0].checkpunkt).toBe('Bodenplatte: vor dem Betonieren');
+    });
+  });
+});

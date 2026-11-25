@@ -36,7 +36,7 @@ export async function preparePhoto(api, file, felder = {}) {
   const keys = fotoKeys(id, p.aufgenommenAm);
   const datensatz = {
     id, stelle_id: felder.stelle_id ?? null, gewerk_id: felder.gewerk_id ?? null, phase_id: felder.phase_id ?? null,
-    notiz: felder.notiz || null, aufgenommen_am: p.aufgenommenAm.toISOString(), datum_geschaetzt: p.datumGeschaetzt,
+    notiz: felder.notiz || null, checkpunkt: felder.checkpunkt ?? null, aufgenommen_am: p.aufgenommenAm.toISOString(), datum_geschaetzt: p.datumGeschaetzt,
     tag: berlinDate(p.aufgenommenAm), key_bild: keys.bild, key_vorschau: keys.vorschau, sha256: p.sha256,
     breite: p.breite, hoehe: p.hoehe,
   };
@@ -65,7 +65,7 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
   async function gewaehlt(auswahl) {
     const { stelle, file, ctx } = zustand;
     try {
-      await enqueuePhoto(api, file, { stelle_id: stelle.id, ...auswahl });
+      await enqueuePhoto(api, file, { stelle_id: stelle.id, checkpunkt: ctx.checkpunkt ?? null, ...auswahl });
       setZustand({ art: 'gespeichert', stelle, ctx });
       onSaved();
     } catch (e) { setZustand({ art: 'fehler', text: e.message }); }
@@ -84,13 +84,13 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
 
   let overlay = null;
   if (zustand?.art === 'waehlen') {
-    overlay = html`<div class="dialog karte"><${CategoryPicker} key=${zustand.n} titel=${zustand.stelle.name}
+    overlay = html`<div class="dialog karte"><${CategoryPicker} key=${zustand.n} titel=${zustand.ctx.checkpunkt ? `${zustand.stelle.name} · ${zustand.ctx.checkpunkt}` : zustand.stelle.name}
       gewerke=${zustand.ctx.gewerke} phasen=${zustand.ctx.phasen} onComplete=${gewaehlt} />
       <button onClick=${() => setZustand(null)}>Verwerfen</button></div>`;
   } else if (zustand?.art === 'gespeichert') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Gespeichert · ${zustand.stelle.name}</p>
       <div class="knopfgitter"><button onClick=${() => setZustand(null)}>Fertig</button>
-      <button class="primaer" onClick=${() => aufStelle(zustand.stelle, zustand.ctx)}>noch eins</button></div></div>`;
+      <button class="primaer" onClick=${() => aufStelle(zustand.stelle, { ...zustand.ctx, checkpunkt: null })}>noch eins</button></div></div>`;
   } else if (zustand?.art === 'eingang') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Im Eingang – später einsortieren.</p></div>`;
   } else if (zustand?.art === 'fehler') {

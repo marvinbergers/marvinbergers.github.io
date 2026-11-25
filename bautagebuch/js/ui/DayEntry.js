@@ -7,6 +7,7 @@ import { findTag, ensureTag, nameOf } from '../data/diary.js';
 import { groupFotosByDay, formatTag } from '../lib/days.js';
 import { weatherText } from '../lib/weather.js';
 import { Attendance } from './Attendance.js';
+import { ShareDialog, shareFotos, blobLoader } from './Share.js';
 
 export const ABSCHNITTE = [
   ['arbeiten', 'Arbeiten'], ['lieferungen', 'Lieferungen'], ['probleme', 'Probleme / Entscheidungen / Absprachen'],
@@ -14,6 +15,7 @@ export const ABSCHNITTE = [
 
 export function DayEntry({ datum, kopf = null }) {
   const api = useApi();
+  const [teilen, setTeilen] = useState(false);
   const d = useLoad(async () => {
     const tag = await findTag(api, datum);
     const [abschnitte, anwesenheit, personen, firmen, gewerke, fotos, stellen] = await Promise.all([
@@ -54,7 +56,10 @@ export function DayEntry({ datum, kopf = null }) {
       onAdd=${async (text) => { await api.insert('tag_abschnitte', { tag_id: await tagId(), typ, text }); d.reload(); }}
       onEdit=${async (a, text) => { await api.update('tag_abschnitte', a.id, { text }); d.reload(); }} />`)}
 
-    <section class="karte"><h3>📷 ${fotos.length} ${fotos.length === 1 ? 'Foto' : 'Fotos'}</h3>
+    <section class="karte"><div class="zeile"><h3>📷 ${fotos.length} ${fotos.length === 1 ? 'Foto' : 'Fotos'}</h3>
+      ${fotos.length > 0 && html`<button onClick=${() => setTeilen(true)}>Teilen…</button>`}</div>
+      ${teilen && html`<${ShareDialog} fotos=${fotos} thumb=${(f) => urls[f.key_vorschau] ?? ''} onClose=${() => setTeilen(false)}
+        onShare=${(auswahl) => shareFotos(auswahl, { getBlob: blobLoader(api) })} />`}
       ${gruppen.map((g) => html`<div><h4>${stellenName(g.stelle_id)}</h4>
         <div class="thumbs">${g.fotos.map((f) => html`<img src=${urls[f.key_vorschau] ?? ''} alt="" loading="lazy" />`)}</div></div>`)}
     </section>
