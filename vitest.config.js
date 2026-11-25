@@ -4,5 +4,6 @@ export default defineConfig({
     include: ['tests/**/*.test.js'],
     exclude: ['tests/e2e/**', 'node_modules/**'],
     environment: 'node',
+    env: { TZ: 'Europe/Berlin' },
   },
 });
