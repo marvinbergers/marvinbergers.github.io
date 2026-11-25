@@ -7,7 +7,7 @@ import { FloorPlan } from './FloorPlan.js';
 import { StellePanel } from './StellePanel.js';
 import { pickEtage, filterStellen } from '../lib/filter.js';
 import { mergeStellen } from '../data/actions.js';
-import { captureHooks } from './capture-hooks.js';
+import { useCapture } from './capture.js';
 
 const LS = 'bautagebuch-etage';
 const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
@@ -18,6 +18,8 @@ export function GrundrissView() {
   const [filter, setFilter] = useState({ gewerk_id: '', phase_id: '' });
   const [auswahl, setAuswahl] = useState(null);
   const [verschiebe, setVerschiebe] = useState(null);
+  const reloadRef = { current: () => {} };
+  const capture = useCapture(api, { onSaved: () => reloadRef.current() });
 
   const basis = useLoad(async () => {
     const [etagen, gewerke, phasen] = await Promise.all([api.list('etagen'), api.list('gewerke'), api.list('phasen')]);
@@ -32,6 +34,7 @@ export function GrundrissView() {
     return { stellen, raeume, fotos };
   }, [etage?.id]);
   const urls = useUrls(api, [etage?.plan_key, etage?.bestand_key]);
+  reloadRef.current = daten.reload;
 
   if (basis.loading) return html`<p class="hinweis">Lädt …</p>`;
   if (!etage) return html`<div class="karte"><h2>Willkommen</h2><p>Es ist noch keine Etage angelegt.</p>
@@ -42,7 +45,6 @@ export function GrundrissView() {
   const wechsel = (id) => { ls.set(LS, id); setEtageId(id); setAuswahl(null); };
   const neu = async (pos) => { const s = await api.insert('stellen', { ...pos, etage_id: etage.id }); await daten.reload(); setAuswahl(s); };
   const verschoben = async (id, pos) => { await api.update('stellen', id, pos); setVerschiebe(null); await daten.reload(); };
-  const capture = captureHooks(api, { onSaved: () => daten.reload() });
 
   const kopf = html`
     <select aria-label="Etage" value=${etage.id} onChange=${(e) => wechsel(e.target.value)}>
@@ -68,11 +70,12 @@ export function GrundrissView() {
       onRename=${async (name) => { const s = await api.update('stellen', auswahl.id, { name }); setAuswahl(s); daten.reload(); }}
       onMove=${(s) => { setVerschiebe(s); setAuswahl(null); }}
       onMerge=${async (ziel) => { await mergeStellen(api, auswahl.id, ziel); setAuswahl(stellen.find((s) => s.id === ziel)); daten.reload(); }} />`}
+    ${capture.overlay}
   </div>`;
 }
 
 function StelleMitFotos({ api, fotos, capture, stelle, gewerke, phasen, ...rest }) {
   const urls = useUrls(api, fotos.map((f) => f.key_vorschau));
   return html`<${StellePanel} stelle=${stelle} fotos=${fotos} phasen=${phasen} thumb=${(f) => urls[f.key_vorschau] ?? ''}
-    onPhoto=${() => capture.atStelle(stelle, { gewerke, phasen, fotos })} extra=${capture.panel(stelle)} ...${rest} />`;
+    onPhoto=${() => capture.atStelle(stelle, { gewerke, phasen, fotos })} ...${rest} />`;
 }
