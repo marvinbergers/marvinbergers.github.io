@@ -8,8 +8,7 @@ import { pickFile } from './capture.js';
 import { FloorPlan } from './FloorPlan.js';
 import { CategoryPicker } from './CategoryPicker.js';
 import { pickEtage } from '../lib/filter.js';
-import { ensureWand } from '../data/actions.js';
-import { wandTitel } from '../lib/rooms.js';
+import { ensureWand, wandTitel } from '../data/actions.js';
 import { sortByFrequency, countUsage } from '../lib/frequency.js';
 
 export function Inbox() {
@@ -98,11 +97,11 @@ function WandWaehlen({ api, etage, etagen, onEtage, onWahl, onAbbruch }) {
   return html`<div>
     <p><b>${raum ? 'Wand wählen' : 'Raum wählen'}</b></p>
     <${FloorPlan} etage=${etage} planUrl=${urls[etage.plan_key]} raeume=${r.data ?? []} aktiverRaum=${raum} kopf=${kopf} ohneSchnellfoto=${true}
-      onRoom=${setRaum} onWand=${async (seite) => {
+      onRoom=${setRaum} onWand=${async (wand) => {
         setMeldung('');
         try {
-          const st = await ensureWand(api, etage, raum, seite);
-          onWahl({ ...st, name: wandTitel(raum, seite, etage.nord_grad ?? 0) });
+          const st = await ensureWand(api, etage, raum, wand);
+          onWahl({ ...st, name: wandTitel(raum, wand, etage) });
         } catch { setMeldung('Keine Verbindung – die Wand kann gerade nicht angelegt werden. Bitte später einsortieren.'); }
       }} />
     ${meldung && html`<p class="fehler" role="alert">${meldung}</p>`}

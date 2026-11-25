@@ -6,8 +6,9 @@ import { StellePanel } from '../../bautagebuch/js/ui/StellePanel.js';
 import { filterStellen, pickEtage } from '../../bautagebuch/js/lib/filter.js';
 
 const etage = { id: 'e1', name: 'EG', plan_key: 'plaene/eg.png', plan_breite: 1000, plan_hoehe: 1000, nord_grad: 0 };
-const bad = { id: 'bad', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] };
-const kueche = { id: 'ku', name: 'Küche', flaechen: [{ x1: 50, y1: 0, x2: 100, y2: 40 }] };
+const P = (id, x, y) => ({ id, x, y });
+const bad = { id: 'bad', name: 'Bad', ecken: [P('a', 0, 0), P('b', 20, 0), P('c', 20, 30), P('d', 0, 30)] };
+const kueche = { id: 'ku', name: 'Küche', ecken: [P('a', 50, 0), P('b', 100, 0), P('c', 100, 40), P('d', 50, 40)] };
 
 async function setup(props = {}) {
   const cb = { onRoom: vi.fn(), onWand: vi.fn(), onQuickPhoto: vi.fn() };
@@ -43,7 +44,7 @@ describe('FloorPlan mit Räumen', () => {
   });
   it('Übersicht: je Raum nur ein schlichter Punkt – keine Flächen, keine Zahl, kein Symbol', async () => {
     const { el, cb } = await setup();
-    expect(el.querySelectorAll('.raum-flaeche')).toHaveLength(0);
+    expect(el.querySelectorAll('.raum-svg polygon')).toHaveLength(0);
     const punkt = el.querySelector('.raum-punkt[data-raum="bad"]');
     expect(punkt).not.toBeNull();
     expect(punkt.textContent.trim()).toBe('');
@@ -51,11 +52,13 @@ describe('FloorPlan mit Räumen', () => {
     await click(punkt);
     expect(cb.onRoom).toHaveBeenCalledWith(bad);
   });
-  it('L-Raum: Punkt liegt in der Mitte des größten Rechtecks', async () => {
-    const l = { id: 'l', name: 'Wohnen', flaechen: [{ x1: 30, y1: 50, x2: 40, y2: 60 }, { x1: 30, y1: 0, x2: 60, y2: 50 }] };
-    const { el } = await setup({ raeume: [l] });
+  it('L-Raum: Punkt liegt sicher im Raum', async () => {
+    const l = { id: 'l', name: 'Wohnen', ecken: [P('a', 0, 0), P('b', 40, 0), P('c', 40, 20), P('d', 20, 20), P('e', 20, 60), P('f', 0, 60)] };
+    const { el, cb, flaeche } = await setup({ raeume: [l] });
     const p = el.querySelector('.raum-punkt[data-raum="l"]');
-    expect([p.style.left, p.style.top]).toEqual(['45%', '25%']);
+    expect(parseFloat(p.style.left)).toBeLessThan(20);
+    await tippe(flaeche, 300, 100); // oberer Teil des L
+    expect(cb.onRoom).toHaveBeenCalledWith(l);
   });
   it('kein Ziehen mehr: Drücken und Ziehen legt nichts an', async () => {
     const { el, cb, flaeche } = await setup();
@@ -66,15 +69,18 @@ describe('FloorPlan mit Räumen', () => {
     expect(el.querySelector('input[name=stellenname]')).toBeNull();
     expect(cb.onRoom).not.toHaveBeenCalled();
   });
-  it('Raumansicht: sechs Wandknöpfe mit Namen aus dem Nordpfeil und Zahlen', async () => {
-    const { el, cb } = await setup({ aktiverRaum: bad, wandZahlen: { oben: 2, boden: 1 } });
-    const knoepfe = [...el.querySelectorAll('[data-seite]')];
-    expect(knoepfe.map((k) => k.dataset.seite).sort()).toEqual(['boden', 'decke', 'links', 'oben', 'rechts', 'unten']);
-    expect(el.querySelector('[data-seite="oben"]').textContent).toContain('Nordwand');
-    expect(el.querySelector('[data-seite="oben"]').textContent).toContain('2');
-    expect(el.querySelector('[data-seite="rechts"]').textContent).toContain('Ostwand');
-    await click(el.querySelector('[data-seite="boden"]'));
-    expect(cb.onWand).toHaveBeenCalledWith('boden');
+  it('Raumansicht: ein Knopf je Wandlinie (mit Namen und Zahl) plus Boden und Decke', async () => {
+    const { el, cb } = await setup({ aktiverRaum: bad, wandZahlen: { 'wand:a': 2, boden: 1 } });
+    const knoepfe = [...el.querySelectorAll('[data-wand]')].map((k) => k.dataset.wand);
+    expect(knoepfe.sort()).toEqual(['boden', 'decke', 'wand:a', 'wand:b', 'wand:c', 'wand:d']);
+    expect(el.querySelector('[data-wand="wand:a"]').textContent).toContain('Nordwand');
+    expect(el.querySelector('[data-wand="wand:a"]').textContent).toContain('2');
+    expect(el.querySelector('[data-wand="wand:b"]').textContent).toContain('Ostwand');
+    expect(el.querySelectorAll('.raum-svg polygon')).toHaveLength(1); // Umriss hervorgehoben
+    await click(el.querySelector('[data-wand="wand:c"]'));
+    expect(cb.onWand).toHaveBeenCalledWith({ seite: 'wand', kante: 'c' });
+    await click(el.querySelector('[data-wand="boden"]'));
+    expect(cb.onWand).toHaveBeenCalledWith({ seite: 'boden' });
   });
   it('Raumansicht: „‹ Grundriss“ führt zurück', async () => {
     const { el, cb } = await setup({ aktiverRaum: bad });

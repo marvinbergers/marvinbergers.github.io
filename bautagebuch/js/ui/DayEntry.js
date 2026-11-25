@@ -10,6 +10,7 @@ import { Attendance } from './Attendance.js';
 import { ShareDialog, shareFotos, blobLoader } from './Share.js';
 import { FotoAnsicht } from './FotoAnsicht.js';
 import { History } from './History.js';
+import { wandTitel } from '../data/actions.js';
 
 export const ABSCHNITTE = [
   ['arbeiten', 'Arbeiten'], ['lieferungen', 'Lieferungen'], ['probleme', 'Probleme / Entscheidungen / Absprachen'],
@@ -21,20 +22,27 @@ export function DayEntry({ datum, kopf = null }) {
   const [offen, setOffen] = useState(null);
   const d = useLoad(async () => {
     const tag = await findTag(api, datum);
-    const [abschnitte, anwesenheit, personen, firmen, gewerke, fotos, stellen] = await Promise.all([
+    const [abschnitte, anwesenheit, personen, firmen, gewerke, fotos, stellen, raeume, etagen] = await Promise.all([
       tag ? api.list('tag_abschnitte', { tag_id: tag.id }) : [], tag ? api.list('anwesenheit', { tag_id: tag.id }) : [],
       api.list('personen'), api.list('firmen'), api.list('gewerke'), api.list('fotos', { tag: datum }), api.list('stellen'),
+      api.list('raeume'), api.list('etagen'),
     ]);
-    return { tag, abschnitte, anwesenheit, personen: sortiert(personen), firmen: sortiert(firmen), gewerke: sortiert(gewerke), fotos, stellen };
+    return { tag, abschnitte, anwesenheit, personen: sortiert(personen), firmen: sortiert(firmen), gewerke: sortiert(gewerke), fotos, stellen, raeume, etagen };
   }, [datum]);
   const fotos = d.data?.fotos ?? [];
   const urls = useUrls(api, fotos.map((f) => f.key_vorschau));
   if (!d.data) return html`<p class="hinweis">Lädt …</p>`;
-  const { tag, abschnitte, anwesenheit, personen, firmen, gewerke, stellen } = d.data;
+  const { tag, abschnitte, anwesenheit, personen, firmen, gewerke, stellen, raeume, etagen } = d.data;
 
   const tagId = async () => (await ensureTag(api, datum)).id;
   const gruppen = groupFotosByDay(fotos).get(datum) ?? [];
-  const stellenName = (id) => (id ? stellen.find((s) => s.id === id)?.name ?? 'Stelle' : 'Eingang');
+  // Wandnamen immer aus Raumform und Nordpfeil berechnen (wie Grundriss und Archiv)
+  const stellenName = (id) => {
+    if (!id) return 'Eingang';
+    const s = stellen.find((x) => x.id === id); if (!s) return 'Stelle';
+    const r = raeume.find((x) => x.id === s.raum_id);
+    return r && s.seite ? wandTitel(r, { seite: s.seite, kante: s.kante }, etagen.find((e) => e.id === r.etage_id)) : s.name;
+  };
 
   return html`<article class="tag">
     ${kopf}

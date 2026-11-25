@@ -14,8 +14,8 @@ function quelle() {
   const tables = {
     erlaubte_nutzer: [{ email: 'geheim@example.org' }],
     etagen: [{ id: 'e1', name: 'EG', plan_key: 'plaene/e1.png', plan_breite: 100, plan_hoehe: 50 }],
-    raeume: [{ id: 'r1', etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] }],
-    stellen: [{ id: 's1', etage_id: 'e1', name: 'Bad – Ostwand', raum_id: 'r1', seite: 'rechts' }],
+    raeume: [{ id: 'r1', etage_id: 'e1', name: 'Bad', ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 20, y: 0 }, { id: 'c', x: 20, y: 30 }, { id: 'd', x: 0, y: 30 }] }],
+    stellen: [{ id: 's1', etage_id: 'e1', name: 'Bad – Ostwand', raum_id: 'r1', seite: 'wand', kante: 'b' }],
     gewerke: [{ id: 'g1', name: 'Elektro' }], phasen: [{ id: 'p4', name: 'Installation', sortierung: 4 }],
     fotos: [
       { id: 'f1', stelle_id: 's1', gewerk_id: 'g1', phase_id: 'p4', tag: '2027-03-17', aufgenommen_am: '2027-03-17T09:00:00Z', key_bild: 'fotos/f1.jpg', key_vorschau: 'fotos/f1_v.jpg' },
@@ -39,7 +39,7 @@ describe('runExport', () => {
   it('legt die Archivstruktur an', async () => {
     const { db, storage } = quelle();
     await runExport({ ziel, db, storage, now: () => jetzt });
-    expect(existsSync(join(ziel, 'Stellen/EG/Bad – Ostwand/2027-03-17_Elektro_Installation_01.jpg'))).toBe(true);
+    expect(existsSync(join(ziel, 'Stellen/EG/Bad – Ostwand/2027-03-17_Elektro_Installation_01.jpg'))).toBe(true); // Kante b = Ostwand
     expect(readdirSync(join(ziel, 'Eingang'))).toEqual(['2027-03-18_01.jpg']);
     const pdf = readFileSync(join(ziel, 'Tagebuch.pdf'));
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
@@ -47,6 +47,7 @@ describe('runExport', () => {
     const svg = readFileSync(join(ziel, 'Grundrisse/EG.svg'), 'utf8');
     expect(svg).toContain('Bad');
     expect(svg).not.toContain('NaN');
+    expect(svg).toContain('<polygon');
   });
 
   it('daten.json enthält alles außer der Freigabeliste', async () => {

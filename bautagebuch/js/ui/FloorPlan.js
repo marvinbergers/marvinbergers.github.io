@@ -3,7 +3,8 @@
 import { html } from '../vendor/htm.js';
 import { useState, useRef, useEffect } from '../vendor/preact.js';
 import { fitTransform } from '../lib/geometry.js';
-import { roomAt, roomBox, fitView, wandNamen, raumPunkt } from '../lib/rooms.js';
+import { fitView } from '../lib/rooms.js';
+import { roomAt, polyBox, raumPunkt, wandNamen, kanten, uhrzeigersinn } from '../lib/polygon.js';
 
 export function FloorPlan({
   etage, planUrl, bestandUrl, raeume = [], raumZahlen = {}, gedimmt = new Set(), aktiverRaum = null, wandZahlen = {},
@@ -17,14 +18,13 @@ export function FloorPlan({
   const [ansicht, setAnsicht] = useState({ s: 1, x: 0, y: 0 });
   const [bestand, setBestand] = useState(false);
   const aspect = etage?.plan_breite && etage?.plan_hoehe ? etage.plan_breite / etage.plan_hoehe : 1;
-  const namen = wandNamen(etage?.nord_grad ?? 0);
 
   // Raum aktiv → auf ihn zoomen; kein Raum → Gesamtansicht.
   useEffect(() => {
     const r = rahmen.current;
-    if (!aktiverRaum?.flaechen?.length || !r?.clientWidth) { setAnsicht({ s: 1, x: 0, y: 0 }); return; }
+    if (!(aktiverRaum?.ecken?.length >= 3) || !r?.clientWidth) { setAnsicht({ s: 1, x: 0, y: 0 }); return; }
     const frame = { w: r.clientWidth, h: r.clientHeight };
-    setAnsicht(fitView(roomBox(aktiverRaum), frame, 0.08, frame));
+    setAnsicht(fitView(polyBox(aktiverRaum.ecken), frame, 0.12, frame));
   }, [aktiverRaum?.id]);
 
   const toPlan = (e) => {
@@ -77,9 +77,23 @@ export function FloorPlan({
     bestandStil = `transform: translate(${t.tx}%, ${t.ty}%) rotate(${t.rotation}rad) scale(${t.scale}); transform-origin: 0 0;`;
   }
   const gegen = `scale(${Math.round((1 / ansicht.s) * 1e4) / 1e4})`; // Beschriftungen bleiben gleich groß
-  const box = aktiverRaum?.flaechen?.length ? roomBox(aktiverRaum) : null;
-  const wandKnopf = (seite, cls) => html`<button class=${`wand ${cls}`} data-seite=${seite} onClick=${() => onWand(seite)}>
-    ${namen[seite]}${wandZahlen[seite] ? html` <span class="zahl">${wandZahlen[seite]}</span>` : ''}</button>`;
+  const mitEcken = raeume.filter((r) => r.ecken?.length >= 3);
+  const aktiv = aktiverRaum?.ecken?.length >= 3 ? { ...aktiverRaum, ecken: uhrzeigersinn(aktiverRaum.ecken) } : null;
+  const namen = aktiv ? wandNamen(aktiv, etage?.nord_grad ?? 0, aspect) : new Map();
+  const punkte = (e) => e.map((p) => `${p.x},${p.y}`).join(' ');
+  // Wandknöpfe auf der Mitte ihrer Linie, leicht nach innen versetzt
+  const wandKnoepfe = aktiv ? kanten(aktiv.ecken).map((k) => {
+    const mx = (k.a.x + k.b.x) / 2; const my = (k.a.y + k.b.y) / 2;
+    const dx = (k.b.x - k.a.x) * aspect; const dy = k.b.y - k.a.y; const l = Math.hypot(dx, dy) || 1;
+    const versatz = 3.5 / ansicht.s; // in Prozent der Planhöhe
+    const x = mx + ((-dy / l) * versatz) / aspect; const y = my + (dx / l) * versatz;
+    const key = `wand:${k.id}`;
+    return html`<button class="wand" data-wand=${key} style=${`left:${x}%;top:${y}%;transform:translate(-50%,-50%) ${gegen}`}
+      onClick=${(e) => { e.stopPropagation(); onWand({ seite: 'wand', kante: k.id }); }}>
+      ${namen.get(k.id)}${wandZahlen[key] ? html` <span class="zahl">${wandZahlen[key]}</span>` : ''}</button>`;
+  }) : null;
+  const bdKnopf = (seite, text) => html`<button class="wand" data-wand=${seite} onClick=${() => onWand({ seite })}>
+    ${text}${wandZahlen[seite] ? html` <span class="zahl">${wandZahlen[seite]}</span>` : ''}</button>`;
 
   return html`<div class="grundriss">
     <div class="grundriss-kopf">
@@ -89,7 +103,7 @@ export function FloorPlan({
       <button class="zoom" aria-label="Verkleinern" onClick=${() => zoom(1 / 1.4)}>−</button>`}
       ${!ohneSchnellfoto && html`<button class="schnellfoto primaer" aria-label="Schnellfoto" onClick=${onQuickPhoto}>📷</button>`}
     </div>
-    ${!aktiverRaum && raeume.some((r) => r.flaechen?.length) && html`<p class="hinweis klein">Raum antippen, dann die Wand.</p>`}
+    ${!aktiverRaum && mitEcken.length > 0 && html`<p class="hinweis klein">Raum antippen, dann die Wand.</p>`}
     <div class=${`plan-rahmen${aktiverRaum ? ' raumansicht' : ''}`} ref=${rahmen}>
       <div class="plan-inhalt" ref=${inhalt}
         style=${`transform: translate(${ansicht.x}px, ${ansicht.y}px) scale(${ansicht.s}); aspect-ratio: ${aspect};`}
@@ -97,15 +111,18 @@ export function FloorPlan({
         ${planUrl ? html`<img class="plan-bild" src=${planUrl} alt=${`Grundriss ${etage?.name ?? ''}`} draggable="false" />`
                   : html`<p class="hinweis">Noch kein Grundriss für diese Etage. Unter Einrichtung hochladen.</p>`}
         ${bestand && bestandUrl && html`<img class="plan-bestand" src=${bestandUrl} alt="Bestandsplan" style=${bestandStil} draggable="false" />`}
-        ${!aktiverRaum && raeume.filter((r) => r.flaechen?.length).map((r) => {
-          const p = raumPunkt(r);
-          return html`<button class=${`raum-punkt${gedimmt.has(r.id) ? ' gedimmt' : ''}`} data-raum=${r.id} aria-label=${r.name} title=${r.name}
+        ${!aktiverRaum && mitEcken.map((r) => {
+          const p = raumPunkt(r, aspect);
+          return p && html`<button class=${`raum-punkt${gedimmt.has(r.id) ? ' gedimmt' : ''}`} data-raum=${r.id} aria-label=${r.name} title=${r.name}
             style=${`left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%) ${gegen}`} onClick=${() => onRoom(r)}></button>`;
         })}
-        ${box && html`<div class="raum-fokus" style=${`left:${box.x1}%;top:${box.y1}%;width:${box.x2 - box.x1}%;height:${box.y2 - box.y1}%`}></div>`}
+        ${aktiv && html`<svg class="raum-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path class="raum-dunkel" fill-rule="evenodd" d=${`M-1000 -1000H1100V1100H-1000Z M${punkte(aktiv.ecken).replace(/ /g, ' L')}Z`} />
+          <polygon class="raum-umriss" points=${punkte(aktiv.ecken)} vector-effect="non-scaling-stroke" />
+        </svg>`}
+        ${wandKnoepfe}
       </div>
-      ${aktiverRaum && html`${wandKnopf('oben', 'w-oben')}${wandKnopf('rechts', 'w-rechts')}${wandKnopf('unten', 'w-unten')}${wandKnopf('links', 'w-links')}`}
     </div>
-    ${aktiverRaum && html`<div class="knopfgitter boden-decke">${wandKnopf('boden', '')}${wandKnopf('decke', '')}</div>`}
+    ${aktiv && html`<div class="knopfgitter boden-decke">${bdKnopf('boden', 'Boden')}${bdKnopf('decke', 'Decke')}</div>`}
   </div>`;
 }

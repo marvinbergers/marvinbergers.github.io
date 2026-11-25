@@ -68,7 +68,7 @@ describe('Aufnahme im Grundriss', () => {
     const queue = await openQueue(`cap-${Math.random()}`);
     const api = createMemoryApi({ queue, seed: {
       etagen: [{ id: 'e1', name: 'EG', sortierung: 1, nord_grad: 0 }],
-      raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] }],
+      raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 20, y: 0 }, { id: 'c', x: 20, y: 30 }, { id: 'd', x: 0, y: 30 }] }],
       gewerke,
     } });
     api.processImage = async (file) => ({ bild: new Blob(['b']), vorschau: new Blob(['v']), breite: 10, hoehe: 10,
@@ -87,7 +87,7 @@ describe('Aufnahme im Grundriss', () => {
     const { el, add, tipp, api } = await setup();
     interaktionen++; el.querySelector('.plan-inhalt').dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
     for (let i = 0; i < 4; i++) await flush();
-    await tipp(el.querySelector('[data-seite="oben"]'));
+    await tipp(el.querySelector('[data-wand="wand:a"]'));
     await tipp(byText(el, 'button', '📷 Foto'));
     expect(add).toHaveBeenCalledTimes(1); // schon vor dem Speichern gesichert
     expect(el.querySelectorAll('.picker button[aria-pressed="true"]')).toHaveLength(0);
@@ -95,7 +95,7 @@ describe('Aufnahme im Grundriss', () => {
     expect(interaktionen).toBe(5);
     const [item] = await api.queue.pending();
     const wand = (await api.list('stellen'))[0];
-    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'oben', name: 'Bad – Nordwand' });
+    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'wand', kante: 'a', name: 'Bad – Nordwand' });
     expect(item.datensatz).toMatchObject({ stelle_id: wand.id, gewerk_id: null, phase_id: null, tag: '2027-03-17' });
     expect(el.textContent).toContain('Gespeichert');
     await tipp(byText(el, 'button', 'noch eins'));

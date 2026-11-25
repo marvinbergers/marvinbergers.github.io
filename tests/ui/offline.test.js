@@ -122,13 +122,13 @@ describe('Wand-Foto offline (Review Räume C1)', () => {
     let cap;
     function Hülle() { cap = useCapture(api); return cap.overlay; }
     const el = mount(html`<${Hülle} />`); await settle();
-    await cap.atWand({ id: 'e1', nord_grad: 0 }, { id: 'bad', name: 'Bad' }, 'oben', { gewerke: [], phasen: [], fotos: [] });
+    await cap.atWand({ id: 'e1', nord_grad: 0 }, { id: 'bad', name: 'Bad', ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 1, y: 0 }, { id: 'c', x: 1, y: 1 }] }, { seite: 'wand', kante: 'a' }, { gewerke: [], phasen: [], fotos: [] });
     await settle();
     HTMLInputElement.prototype.click = orig;
     const [item] = await queue.pending();
     expect(item).toBeTruthy(); // nicht verloren
     expect(item.datensatz.stelle_id).toBeNull();
-    expect(item.datensatz.wand).toMatchObject({ raum_id: 'bad', seite: 'oben', etage_id: 'e1' });
+    expect(item.datensatz.wand).toMatchObject({ raum_id: 'bad', seite: 'wand', kante: 'a', etage_id: 'e1' });
     expect(el.textContent).not.toMatch(/Failed to fetch/);
 
     // Wieder online: beim Hochladen wird die Wand angelegt und das Foto ihr zugeordnet.
@@ -138,9 +138,9 @@ describe('Wand-Foto offline (Review Räume C1)', () => {
     const { ensureWand } = await import('../../bautagebuch/js/data/actions.js');
     await syncOnce({ queue, sign: async (ops) => ops.map((o) => o.key), upload: async () => {},
       insertFoto: (d) => api.insert('fotos', d), updateFoto: () => {},
-      ensureWand: (w) => ensureWand(api, { id: w.etage_id, nord_grad: w.nord_grad }, { id: w.raum_id, name: w.raum_name }, w.seite) });
+      ensureWand: (w) => ensureWand(api, { id: w.etage_id, nord_grad: w.nord_grad }, { id: w.raum_id, name: w.raum_name }, { seite: w.seite, kante: w.kante }) });
     const wand = (await api.list('stellen'))[0];
-    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'oben' });
+    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'wand', kante: 'a' });
     const [foto] = await api.list('fotos');
     expect(foto.stelle_id).toBe(wand.id);
     expect(foto.wand).toBeUndefined();
@@ -152,7 +152,7 @@ describe('Raum löschen (Review Räume I2)', () => {
     const { deleteRaum } = await import('../../bautagebuch/js/data/actions.js');
     const api = createMemoryApi({ seed: {
       raeume: [{ id: 'r', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 1, y2: 1 }] }],
-      stellen: [{ id: 's', raum_id: 'r', seite: 'oben' }],
+      stellen: [{ id: 's', raum_id: 'r', seite: 'wand', kante: 'a' }],
       fotos: [{ id: 'f', stelle_id: 's', sha256: '1' }],
     } });
     await deleteRaum(api, { id: 'r' });
@@ -167,7 +167,7 @@ describe('Eingang: Wand wählen offline (Review Räume I3)', () => {
     const queue = await openQueue(`i3-${Math.random()}`);
     const api = createMemoryApi({ queue, seed: {
       etagen: [{ id: 'e1', name: 'EG', sortierung: 1 }],
-      raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] }],
+      raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 20, y: 0 }, { id: 'c', x: 20, y: 30 }, { id: 'd', x: 0, y: 30 }] }],
       fotos: [{ id: 'f1', sha256: '1', tag: '2027-03-17' }],
     } });
     const el = mount(html`<${ApiContext.Provider} value=${api}><${Inbox} /><//>`);
@@ -178,7 +178,7 @@ describe('Eingang: Wand wählen offline (Review Räume I3)', () => {
     f.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 1000 });
     f.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true })); await settle();
     api.insert = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
-    await click(el.querySelector('[data-seite="oben"]')); await settle();
+    await click(el.querySelector('[data-wand="wand:a"]')); await settle();
     expect(el.textContent).toMatch(/Keine Verbindung/);
   });
 });

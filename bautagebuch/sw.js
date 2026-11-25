@@ -1,6 +1,6 @@
 // Service Worker: hält die App-Hülle offline verfügbar und nimmt geteilte Fotos (Android) an.
 importScripts('js/lib/share-target.js');
-const CACHE = 'bautagebuch-v6';
+const CACHE = 'bautagebuch-v7';
 const TIMEOUT_MS = 3000; // schwaches Netz: nach 3 s aus dem Speicher
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'js/main.js', 'js/config.js',
@@ -43,6 +43,7 @@ const SHELL = [
   'js/lib/hours.js',
   'js/lib/keys.js',
   'js/lib/photo.js',
+  'js/lib/polygon.js',
   'js/lib/queue.js',
   'js/lib/rooms.js',
   'js/lib/share-target.js',

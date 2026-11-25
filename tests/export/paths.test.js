@@ -8,8 +8,9 @@ describe('Archiv-Pfade', () => {
   });
   it('Wand-Ordner aus Raum und Seite, Wandname nach aktuellem Nordpfeil', () => {
     const etage = { name: 'EG', nord_grad: 90 };
-    expect(stellenOrdner(etage, { name: 'veraltet', raum_id: 'r', seite: 'rechts' }, { name: 'Bad' })).toBe('Stellen/EG/Bad – Nordwand');
-    expect(stellenOrdner(etage, { name: 'x', raum_id: 'r', seite: 'boden' }, { name: 'Bad' })).toBe('Stellen/EG/Bad – Boden');
+    const bad = { name: 'Bad', ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 10, y: 0 }, { id: 'c', x: 10, y: 10 }, { id: 'd', x: 0, y: 10 }] };
+    expect(stellenOrdner(etage, { name: 'veraltet', raum_id: 'r', seite: 'wand', kante: 'b' }, bad)).toBe('Stellen/EG/Bad – Nordwand');
+    expect(stellenOrdner(etage, { name: 'x', raum_id: 'r', seite: 'boden' }, bad)).toBe('Stellen/EG/Bad – Boden');
   });
   it('Stellen-Ordner, für Windows gültig, Umlaute bleiben', () => {
     expect(stellenOrdner({ name: 'EG' }, { name: 'Bad – Ostwand' })).toBe('Stellen/EG/Bad – Ostwand');

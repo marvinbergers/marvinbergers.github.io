@@ -61,11 +61,15 @@ export function raumPunkt(raum, aspect = 1) {
   const e = raum.ecken ?? []; if (e.length < 3) return null;
   const b = polyBox(e); const N = 24;
   const abstand = (p) => Math.min(...kanten(e).map(({ a, b: c }) => segAbstand(p, a, c, aspect)));
+  const mitte = { x: (b.x1 + b.x2) / 2, y: (b.y1 + b.y2) / 2 };
+  const zurMitte = (p) => Math.hypot((p.x - mitte.x) * aspect, p.y - mitte.y);
   let best = null; let bestD = -1;
   for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
     const p = { x: b.x1 + ((b.x2 - b.x1) * i) / N, y: b.y1 + ((b.y2 - b.y1) * j) / N };
     if (!pointInPolygon(p, e)) continue;
-    const d = abstand(p); if (d > bestD) { bestD = d; best = p; }
+    const d = abstand(p);
+    // bei gleichem Abstand (z. B. längliche Räume) den Punkt näher zur Mitte nehmen
+    if (d > bestD + 1e-9 || (Math.abs(d - bestD) <= 1e-9 && zurMitte(p) < zurMitte(best))) { bestD = d; best = p; }
   }
   return best && { x: Math.round(best.x * 100) / 100, y: Math.round(best.y * 100) / 100 };
 }

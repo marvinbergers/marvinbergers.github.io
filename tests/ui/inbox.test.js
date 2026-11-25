@@ -12,7 +12,7 @@ async function apiMit(fotos = []) {
   const queue = await openQueue(`inbox-${Math.random()}`);
   const api = createMemoryApi({ queue, seed: {
     etagen: [{ id: 'e1', name: 'EG', sortierung: 1 }],
-    raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] }],
+    raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 20, y: 0 }, { id: 'c', x: 20, y: 30 }, { id: 'd', x: 0, y: 30 }] }],
     gewerke: [{ id: 'g1', name: 'Elektro', sortierung: 1 }],
     fotos,
   } });
@@ -69,14 +69,14 @@ describe('Inbox', () => {
     f.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 1000 });
     f.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
     for (let i = 0; i < 4; i++) await flush();
-    await click(el.querySelector('[data-seite="links"]'));
+    await click(el.querySelector('[data-wand="wand:d"]'));
     for (let i = 0; i < 3; i++) await flush();
     await click(byText(el, '.picker button', 'Elektro'));
     await click(byText(el, '.picker button', 'Speichern'));
     for (let i = 0; i < 4; i++) await flush();
     expect(el.querySelectorAll('[data-foto]')).toHaveLength(0);
     const wand = (await api.list('stellen'))[0];
-    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'links' });
+    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'wand', kante: 'd' });
     expect((await api.list('fotos', { stelle_id: wand.id })).map((x) => x.gewerk_id)).toEqual(['g1', 'g1']);
   });
 

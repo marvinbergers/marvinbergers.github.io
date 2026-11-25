@@ -5,11 +5,12 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fotoDateiname, stellenOrdner, sauber } from './paths.mjs';
 import { tagebuchPdf } from './pdf.mjs';
+import { raumPunkt } from '../../bautagebuch/js/lib/polygon.js';
 
 const TAG_MS = 86_400_000;
 const TABELLEN = ['etagen', 'raeume', 'stellen', 'gewerke', 'phasen', 'personen', 'firmen', 'fotos', 'tage', 'tag_abschnitte', 'anwesenheit', 'dokumente', 'einstellungen'];
 // Reihenfolge fürs endgültige Löschen: abhängige Tabellen zuerst.
-const LOESCHFOLGE = ['fotos', 'tag_abschnitte', 'anwesenheit', 'dokumente', 'raeume', 'stellen', 'firmen', 'personen', 'gewerke', 'phasen', 'etagen'];
+const LOESCHFOLGE = ['fotos', 'tag_abschnitte', 'anwesenheit', 'dokumente', 'stellen', 'raeume', 'firmen', 'personen', 'gewerke', 'phasen', 'etagen'];
 const DATEI_SCHLUESSEL = ['key_bild', 'key_vorschau', 'key', 'plan_key', 'bestand_key'];
 
 const schreibe = (pfad, inhalt) => { mkdirSync(dirname(pfad), { recursive: true }); writeFileSync(pfad, inhalt); };
@@ -50,10 +51,11 @@ export async function runExport({ ziel, db, storage, now = () => new Date(), log
     const zahl = new Map();
     for (const f of aktiv('fotos')) { const st = stellen.get(f.stelle_id); if (st?.raum_id) zahl.set(st.raum_id, (zahl.get(st.raum_id) ?? 0) + 1); }
     const l = w / 45;
-    const marken = aktiv('raeume').filter((r) => r.etage_id === e.id && r.flaechen?.length).map((r) => {
-      const fl = r.flaechen.map((f) => `<rect x="${(f.x1 / 100) * w}" y="${(f.y1 / 100) * h}" width="${((f.x2 - f.x1) / 100) * w}" height="${((f.y2 - f.y1) / 100) * h}" fill="#2f5d5022" stroke="#2f5d50" stroke-width="${l / 6}"/>`).join('');
-      const f0 = r.flaechen[0]; const cx = (((f0.x1 + f0.x2) / 2) / 100) * w; const cy = (((f0.y1 + f0.y2) / 2) / 100) * h;
-      return `<g>${fl}<text x="${cx}" y="${cy}" text-anchor="middle" font-size="${l}" font-family="sans-serif" fill="#1f2421">${esc(r.name)}${zahl.get(r.id) ? ` (${zahl.get(r.id)} Fotos)` : ''}</text></g>`;
+    const marken = aktiv('raeume').filter((r) => r.etage_id === e.id && r.ecken?.length >= 3).map((r) => {
+      const pts = r.ecken.map((p) => `${(p.x / 100) * w},${(p.y / 100) * h}`).join(' ');
+      const m = raumPunkt(r, w / h) ?? r.ecken[0]; const cx = (m.x / 100) * w; const cy = (m.y / 100) * h;
+      return `<g><polygon points="${pts}" fill="#2f5d5022" stroke="#2f5d50" stroke-width="${l / 6}"/>`
+        + `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="${l}" font-family="sans-serif" fill="#1f2421">${esc(r.name)}${zahl.get(r.id) ? ` (${zahl.get(r.id)} Fotos)` : ''}</text></g>`;
     }).join('');
     schreibe(join(ziel, 'Grundrisse', `${sauber(e.name)}.svg`), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><image href="data:${mime};base64,${bild}" width="${w}" height="${h}"/>${marken}</svg>`);
   }

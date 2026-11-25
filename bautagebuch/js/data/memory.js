@@ -57,7 +57,7 @@ export function createMemoryApi({ queue, me = { id: 'u1', email: 'demo@example.o
         upload: async (key, blob) => { blobs.set(key, blob); },
         insertFoto: (d) => api.insert('fotos', d),
         updateFoto: (id, p) => api.update('fotos', id, p),
-        ensureWand: (w) => ensureWand(api, { id: w.etage_id, nord_grad: w.nord_grad }, { id: w.raum_id, name: w.raum_name }, w.seite),
+        ensureWand: (w) => ensureWand(api, { id: w.etage_id, nord_grad: w.nord_grad }, { id: w.raum_id, name: w.raum_name }, { seite: w.seite, kante: w.kante }),
       });
     },
   };

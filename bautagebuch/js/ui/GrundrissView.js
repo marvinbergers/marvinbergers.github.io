@@ -6,7 +6,7 @@ import { useLoad, useUrls, sortiert } from './hooks.js';
 import { FloorPlan } from './FloorPlan.js';
 import { StellePanel } from './StellePanel.js';
 import { pickEtage } from '../lib/filter.js';
-import { wandTitel } from '../lib/rooms.js';
+import { wandTitel } from '../data/actions.js';
 import { useCapture } from './capture.js';
 import { ShareDialog, shareFotos, blobLoader } from './Share.js';
 import { Checkliste, checklisten } from './Checkliste.js';
@@ -20,7 +20,7 @@ export function GrundrissView() {
   const [etageId, setEtageId] = useState(ls.get(LS));
   const [filter, setFilter] = useState({ gewerk_id: '', phase_id: '' });
   const [raum, setRaum] = useState(null);
-  const [seite, setSeite] = useState(null);
+  const [wand, setWand] = useState(null); // { seite: 'wand', kante } | { seite: 'boden'|'decke' }
   const reloadRef = { current: () => {} };
   const capture = useCapture(api, { onSaved: () => reloadRef.current() });
 
@@ -56,11 +56,12 @@ export function GrundrissView() {
     const s = stelleVon.get(f.stelle_id);
     if (!s?.raum_id || !passt(f)) continue;
     raumZahlen[s.raum_id] = (raumZahlen[s.raum_id] ?? 0) + 1;
-    if (raum && s.raum_id === raum.id) wandZahlen[s.seite] = (wandZahlen[s.seite] ?? 0) + 1;
+    if (raum && s.raum_id === raum.id) { const k = s.seite === 'wand' ? `wand:${s.kante}` : s.seite; wandZahlen[k] = (wandZahlen[k] ?? 0) + 1; }
   }
   const gedimmt = new Set(gefiltert ? raeume.filter((r) => !raumZahlen[r.id]).map((r) => r.id) : []);
-  const wechsel = (id) => { ls.set(LS, id); setEtageId(id); setRaum(null); setSeite(null); };
-  const wandStelle = raum && seite ? stellen.find((s) => s.raum_id === raum.id && s.seite === seite) : null;
+  const wechsel = (id) => { ls.set(LS, id); setEtageId(id); setRaum(null); setWand(null); };
+  const aktuellerRaum = raum ? raeume.find((r) => r.id === raum.id) ?? raum : null;
+  const wandStelle = aktuellerRaum && wand ? stellen.find((s) => s.raum_id === aktuellerRaum.id && s.seite === wand.seite && (s.kante ?? null) === (wand.kante ?? null)) : null;
   const wandFotos = wandStelle ? fotos.filter((f) => f.stelle_id === wandStelle.id) : [];
 
   const kopf = html`
@@ -69,12 +70,12 @@ export function GrundrissView() {
     </select>
     <a class="btn einstellungen" href="#/einrichtung" aria-label="Einrichtung">⚙︎</a>`;
 
-  const ohneFlaechen = raeume.length > 0 && !raeume.some((r) => r.flaechen?.length);
+  const ohneFlaechen = raeume.length > 0 && !raeume.some((r) => r.ecken?.length >= 3);
 
   return html`<div>
     <${FloorPlan} etage=${etage} planUrl=${urls[etage.plan_key]} bestandUrl=${urls[etage.bestand_key]}
-      raeume=${raeume} raumZahlen=${raumZahlen} gedimmt=${gedimmt} aktiverRaum=${raum} wandZahlen=${wandZahlen} kopf=${kopf}
-      onRoom=${(r) => { setRaum(r); setSeite(null); }} onWand=${setSeite} onQuickPhoto=${() => capture.quick()} />
+      raeume=${raeume} raumZahlen=${raumZahlen} gedimmt=${gedimmt} aktiverRaum=${aktuellerRaum} wandZahlen=${wandZahlen} kopf=${kopf}
+      onRoom=${(r) => { setRaum(r); setWand(null); }} onWand=${setWand} onQuickPhoto=${() => capture.quick()} />
     ${(ohneFlaechen || raeume.length === 0) && html`<p class="hinweis">Noch keine Räume aufgezogen – unter ⚙︎ Einrichtung → Räume.</p>`}
     <div class="filter zeile">
       <select aria-label="Filter Gewerk" onChange=${(e) => setFilter({ ...filter, gewerk_id: e.target.value })}>
@@ -84,10 +85,10 @@ export function GrundrissView() {
         <option value="">Alle Phasen</option>${basis.data.phasen.map((p) => html`<option value=${p.id}>${p.name}</option>`)}
       </select>
     </div>
-    ${raum && seite && html`<${WandMitFotos} api=${api} titel=${wandTitel(raum, seite, etage.nord_grad ?? 0)}
+    ${aktuellerRaum && wand && html`<${WandMitFotos} api=${api} titel=${wandTitel(aktuellerRaum, wand, etage)}
       fotos=${wandFotos.filter(passt)} alleFotos=${fotos} gewerke=${basis.data.gewerke} phasen=${basis.data.phasen} listen=${basis.data.listen}
-      onPhoto=${(extra = {}) => capture.atWand(etage, raum, seite, { gewerke: basis.data.gewerke, phasen: basis.data.phasen, fotos, wandStelle, ...extra })}
-      onClose=${() => setSeite(null)} onChanged=${() => daten.reload()} />`}
+      onPhoto=${(extra = {}) => capture.atWand(etage, aktuellerRaum, wand, { gewerke: basis.data.gewerke, phasen: basis.data.phasen, fotos, wandStelle, ...extra })}
+      onClose=${() => setWand(null)} onChanged=${() => daten.reload()} />`}
     ${capture.overlay}
   </div>`;
 }

@@ -6,8 +6,7 @@ import { fotoKeys } from '../lib/keys.js';
 import { berlinDate } from '../lib/days.js';
 import { sortByFrequency, countUsage } from '../lib/frequency.js';
 import { CategoryPicker } from './CategoryPicker.js';
-import { ensureWand } from '../data/actions.js';
-import { wandTitel } from '../lib/rooms.js';
+import { ensureWand, wandTitel } from '../data/actions.js';
 
 const uuid = () => crypto.randomUUID();
 
@@ -67,14 +66,14 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
   const [zustand, setZustand] = useState(null); // {art:'waehlen'|'gespeichert'|'eingang'|'fehler', ...}
 
   /** Foto an einer Wand: Kamera zuerst (iOS verlangt den direkten Klick), dann Wand-Stelle sicherstellen. */
-  async function anWand(etage, raum, seite, ctx) {
+  async function anWand(etage, raum, wandSel, ctx) {
     const file = await pickFile();
     if (!file) return;
-    const name = wandTitel(raum, seite, etage.nord_grad ?? 0);
+    const name = wandTitel(raum, wandSel, etage);
     let stelle = ctx.wandStelle ?? null;
-    if (!stelle) { try { stelle = await ensureWand(api, etage, raum, seite); } catch { stelle = null; } }
-    const wand = stelle ? null : { etage_id: etage.id, nord_grad: etage.nord_grad ?? 0, raum_id: raum.id, raum_name: raum.name, seite };
-    await mitDatei({ id: stelle?.id ?? null, name, spaeter: !stelle }, { ...ctx, wandStelle: stelle, etage, raum, seite }, file, wand);
+    if (!stelle) { try { stelle = await ensureWand(api, etage, raum, wandSel); } catch { stelle = null; } }
+    const wand = stelle ? null : { etage_id: etage.id, nord_grad: etage.nord_grad ?? 0, raum_id: raum.id, raum_name: raum.name, seite: wandSel.seite, kante: wandSel.kante ?? null };
+    await mitDatei({ id: stelle?.id ?? null, name, spaeter: !stelle }, { ...ctx, wandStelle: stelle, etage, raum, wandSel }, file, wand);
   }
 
   async function aufStelle(stelle, ctx) {
@@ -130,7 +129,7 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
       ${zustand.stelle.spaeter && html`<p class="hinweis">Kein Netz: Das Foto wird der Wand zugeordnet, sobald es hochgeladen wird.</p>`}
       <div class="knopfgitter"><button onClick=${() => setZustand(null)}>Fertig</button>
       <button class="primaer" onClick=${() => (zustand.ctx.raum
-        ? anWand(zustand.ctx.etage, zustand.ctx.raum, zustand.ctx.seite, { ...zustand.ctx, checkpunkt: null })
+        ? anWand(zustand.ctx.etage, zustand.ctx.raum, zustand.ctx.wandSel, { ...zustand.ctx, checkpunkt: null })
         : aufStelle(zustand.stelle, { ...zustand.ctx, checkpunkt: null }))}>noch eins</button></div></div>`;
   } else if (zustand?.art === 'eingang') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Im Eingang – später einsortieren.</p></div>`;
