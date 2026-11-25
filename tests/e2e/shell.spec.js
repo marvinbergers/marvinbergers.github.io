@@ -6,7 +6,12 @@ describe('App-Hülle', () => {
   afterAll(stopServer);
   it('zeigt drei Reiter und registriert den Service Worker', async () => {
     const { browser, page } = await openPage();
+    const fehler = [];
+    page.on('pageerror', (e) => fehler.push(e.message));
     await page.goto(BASE);
+    await page.waitForSelector('nav.tabs a');
+    expect(fehler).toEqual([]);
+    expect(await page.locator('.demo').textContent()).toContain('Vorschau');
     const tabs = await page.locator('nav.tabs a').allTextContents();
     expect(tabs.map((t) => t.trim())).toEqual(['Grundriss', 'Tagebuch', 'Eingang']);
     const sw = await page.evaluate(async () => !!(await navigator.serviceWorker.ready).active);

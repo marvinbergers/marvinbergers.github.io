@@ -1,5 +1,10 @@
 import { render } from './vendor/preact.js';
 import { html } from './vendor/htm.js';
+import { useState, useEffect } from './vendor/preact.js';
+import { SUPABASE_URL } from './config.js';
+import { ApiContext } from './data/api.js';
+import { openQueue } from './lib/queue.js';
+import { SyncBadge } from './ui/SyncBadge.js';
 
 export const ROUTES = ['grundriss', 'tagebuch', 'eingang', 'einrichtung', 'papierkorb'];
 const TABS = [
@@ -19,9 +24,17 @@ export function currentRoute() {
 
 export function navigate(route) { location.hash = `#/${route}`; }
 
-function Shell({ route, badges = {} }) {
+export function Shell({ badges = {}, warteschlange = 0, demo = false }) {
+  const [route, setRoute] = useState(currentRoute());
+  useEffect(() => {
+    const f = () => setRoute(currentRoute());
+    window.addEventListener('hashchange', f);
+    return () => window.removeEventListener('hashchange', f);
+  }, []);
   const View = views[route];
   return html`
+    ${demo && html`<div class="demo">Vorschau ohne Server – nichts wird gespeichert.</div>`}
+    <${SyncBadge} count=${warteschlange} />
     <main class="view">${View ? html`<${View} />` : html`<p class="leer">${route}</p>`}</main>
     <nav class="tabs">
       ${TABS.map((t) => html`<a href=${'#/' + t.route} class=${t.route === route ? 'aktiv' : ''} data-route=${t.route}>
@@ -29,12 +42,42 @@ function Shell({ route, badges = {} }) {
     </nav>`;
 }
 
-export function renderApp(root = document.getElementById('app'), extra = {}) {
-  render(html`<${Shell} route=${currentRoute()} ...${extra} />`, root);
+async function start(root) {
+  await import('./ui/views.js'); // registriert alle Seiten
+  const queue = await openQueue();
+  const demo = !SUPABASE_URL || new URLSearchParams(location.search).has('demo');
+  if (demo) {
+    const { createMemoryApi } = await import('./data/memory.js');
+    const { demoSeed } = await import('./data/demo.js');
+    const api = createMemoryApi({ queue, seed: demoSeed() });
+    window.__btApi = api;
+    render(html`<${ApiContext.Provider} value=${api}><${Shell} demo=${true} /><//>`, root);
+    return;
+  }
+  const { getClient, requestCode, verifyCode, onAuthChange } = await import('./data/supabase.js');
+  const { createRemoteApi } = await import('./data/remote.js');
+  const { AuthGate } = await import('./ui/Login.js');
+  const client = await getClient();
+  const auth = {
+    requestCode: (e) => requestCode(client, e),
+    verifyCode: (e, c) => verifyCode(client, e, c),
+    onAuthChange: (cb) => onAuthChange(client, cb),
+  };
+  function App() {
+    const [api, setApi] = useState(null);
+    const [wartend, setWartend] = useState(0);
+    const signedIn = async () => {
+      const { data } = await client.auth.getUser();
+      setApi(createRemoteApi({ client, queue, me: { id: data.user.id, email: data.user.email }, onQueueChange: setWartend }));
+    };
+    return html`<${AuthGate} auth=${auth} onSignedIn=${signedIn}>
+      ${api ? html`<${ApiContext.Provider} value=${api}><${Shell} warteschlange=${wartend} /><//>` : html`<p class="hinweis">Lädt …</p>`}
+    <//>`;
+  }
+  render(html`<${App} />`, root);
 }
 
 if (typeof window !== 'undefined' && !globalThis.__BT_TEST__) {
-  window.addEventListener('hashchange', () => renderApp());
-  renderApp();
+  start(document.getElementById('app'));
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' });
 }
