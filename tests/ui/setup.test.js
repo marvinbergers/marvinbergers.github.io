@@ -43,15 +43,37 @@ describe('Einrichtung', () => {
     expect((await api.list('etagen'))[0].nord_grad).toBe(135);
   });
 
-  it('Raummodus: Tipp auf den Plan + Name legt einen Raum an', async () => {
+  it('Raummodus: zwei Ecken antippen + Name legt einen Raum als Rechteck an', async () => {
     await setup();
     await click(byText(el, 'button', 'Räume'));
-    tippAuf(250, 100); await settle();
+    tippAuf(300, 200); await settle();           // erste Ecke (unten rechts)
+    tippAuf(100, 50); await settle();            // zweite Ecke (oben links)
     await type(el.querySelector('input[name=raumname]'), 'Bad');
     await click(byText(el, 'button', 'Hinzufügen'));
     const r = await api.list('raeume');
     expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ etage_id: 'e1', name: 'Bad', x: 25, y: 20 });
+    expect(r[0]).toMatchObject({ etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 10, y1: 10, x2: 30, y2: 40 }] });
+  });
+
+  it('weiteres Rechteck hängt an den zuletzt angelegten Raum an (L-Form)', async () => {
+    await setup();
+    await click(byText(el, 'button', 'Räume'));
+    tippAuf(0, 0); await settle(); tippAuf(100, 100); await settle();
+    await type(el.querySelector('input[name=raumname]'), 'Wohnen');
+    await click(byText(el, 'button', 'Hinzufügen'));
+    await click(byText(el, 'button', '+ weiteres Rechteck für Wohnen'));
+    tippAuf(0, 100); await settle(); tippAuf(50, 250); await settle();
+    await click(byText(el, 'button', 'Rechteck hinzufügen'));
+    const [r] = await api.list('raeume');
+    expect(r.flaechen).toHaveLength(2);
+    expect(r.flaechen[1]).toEqual({ x1: 0, y1: 20, x2: 5, y2: 50 });
+  });
+
+  it('alte Punkt-Räume werden als „neu aufziehen“ markiert', async () => {
+    await setup({ etagen: [{ id: 'e1', name: 'EG', sortierung: 1, plan_key: 'plaene/e1.png', plan_breite: 1000, plan_hoehe: 500 }],
+      raeume: [{ id: 'alt', etage_id: 'e1', name: 'Küche', x: 50, y: 50 }] });
+    await click(byText(el, 'button', 'Räume'));
+    expect(el.textContent).toContain('Küche – neu aufziehen');
   });
 
   it('Bestandsplan: Passpunkte erst nach 2 + 2 Punkten speichern', async () => {

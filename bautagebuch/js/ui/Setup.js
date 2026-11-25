@@ -5,6 +5,7 @@ import { useApi } from '../data/api.js';
 import { useLoad, useUrls, sortiert } from './hooks.js';
 import { safeName } from '../lib/keys.js';
 import { checklisten } from './Checkliste.js';
+import { normRect } from '../lib/rooms.js';
 import { monatsArchiv } from '../data/archiv.js';
 import { blobLoader } from './Share.js';
 
@@ -56,10 +57,16 @@ export function Setup({ extra = null }) {
   </div>`;
 }
 
+const rund = (v) => Math.round(v * 100) / 100;
+const rStil = (f) => `left:${f.x1}%;top:${f.y1}%;width:${f.x2 - f.x1}%;height:${f.y2 - f.y1}%`;
+
 function EtageKarte({ api, etage, raeume, reload }) {
   const [modus, setModus] = useState(null); // 'raeume' | 'passpunkte'
-  const [punkt, setPunkt] = useState(null);
   const [name, setName] = useState('');
+  const ecke = useRef(null); const [eckeSichtbar, setEcke] = useState(null);
+  const [rechteck, setRechteck] = useState(null);
+  const [letzter, setLetzter] = useState(null); // zuletzt angelegter Raum (für L-Form)
+  const [anhaengen, setAnhaengen] = useState(null);
   const [pp, setPpState] = useState([]);
   const ppRef = useRef([]); // schnelle Tipps hintereinander dürfen keinen Punkt verlieren
   const setPp = (v) => { ppRef.current = v; setPpState(v); };
@@ -81,7 +88,12 @@ function EtageKarte({ api, etage, raeume, reload }) {
   const tipp = async (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     const p = { x: Math.round(((e.clientX - r.left) / r.width) * 10000) / 100, y: Math.round(((e.clientY - r.top) / r.height) * 10000) / 100 };
-    if (modus === 'raeume') { setPunkt(p); setName(''); return; }
+    if (modus === 'raeume') {
+      if (!ecke.current) { ecke.current = p; setEcke(p); setRechteck(null); return; }
+      const r = normRect(ecke.current, p); ecke.current = null; setEcke(null);
+      setRechteck({ x1: rund(r.x1), y1: rund(r.y1), x2: rund(r.x2), y2: rund(r.y2) });
+      return;
+    }
     if (modus === 'passpunkte') {
       const neu = [...ppRef.current, p]; setPp(neu);
       if (neu.length === 4) {
@@ -107,15 +119,29 @@ function EtageKarte({ api, etage, raeume, reload }) {
       ${etage.bestand_key && html`<button aria-pressed=${modus === 'passpunkte'} onClick=${() => { setPp([]); setModus(modus === 'passpunkte' ? null : 'passpunkte'); }}>Passpunkte${etage.bestand_passpunkte ? ' ✓' : ''}</button>`}
     </div>
     ${modus && html`<div>
-      <p class="hinweis">${modus === 'raeume' ? 'Auf den Raum im Plan tippen und benennen.' : ppHinweis}</p>
+      <p class="hinweis">${modus === 'raeume' ? 'Zwei gegenüberliegende Ecken des Raums antippen, dann benennen. L-förmige Räume: danach „+ weiteres Rechteck“.' : ppHinweis}</p>
       <div class="setup-plan" style=${`aspect-ratio: ${etage.plan_breite && etage.plan_hoehe ? etage.plan_breite / etage.plan_hoehe : 1.4}`} onClick=${tipp}>
         <img src=${(zeigeBestand ? urls[etage.bestand_key] : urls[etage.plan_key]) ?? ''} alt="" draggable="false" />
-        ${modus === 'raeume' && raeume.map((r) => html`<span class="raum-marke" style=${`left:${r.x}%;top:${r.y}%`}>${r.name}</span>`)}
+        ${modus === 'raeume' && raeume.flatMap((r) => (r.flaechen ?? []).map((f) => html`<span class="raum-rahmen" style=${rStil(f)}><b>${r.name}</b></span>`))}
+        ${modus === 'raeume' && eckeSichtbar && html`<span class="pp" style=${`left:${eckeSichtbar.x}%;top:${eckeSichtbar.y}%`}>+</span>`}
+        ${modus === 'raeume' && rechteck && html`<span class="raum-rahmen neu" style=${rStil(rechteck)}></span>`}
         ${modus === 'passpunkte' && pp.filter((_, i) => (zeigeBestand ? i >= 2 : i < 2)).map((p) => html`<span class="pp" style=${`left:${p.x}%;top:${p.y}%`}>+</span>`)}
       </div>
-      ${punkt && html`<div class="zeile"><input name="raumname" placeholder="Raumname" value=${name} onInput=${(e) => setName(e.target.value)} />
-        <button class="primaer" onClick=${async () => { if (!name.trim()) return; await api.insert('raeume', { etage_id: etage.id, name: name.trim(), ...punkt }); setPunkt(null); reload(); }}>Hinzufügen</button></div>`}
-      ${modus === 'raeume' && html`<${Liste} rows=${raeume} text=${(r) => r.name} onDelete=${async (r) => { await api.softDelete('raeume', r.id); reload(); }} />`}
+      ${rechteck && !anhaengen && html`<div class="zeile"><input name="raumname" placeholder="Raumname" value=${name} onInput=${(e) => setName(e.target.value)} />
+        <button class="primaer" onClick=${async () => {
+          if (!name.trim()) return;
+          const neu = await api.insert('raeume', { etage_id: etage.id, name: name.trim(), flaechen: [rechteck] });
+          setRechteck(null); setName(''); setLetzter(neu); reload();
+        }}>Hinzufügen</button></div>`}
+      ${rechteck && anhaengen && html`<button class="primaer" onClick=${async () => {
+          await api.update('raeume', anhaengen.id, { flaechen: [...(anhaengen.flaechen ?? []), rechteck] });
+          setRechteck(null); setAnhaengen(null); reload();
+        }}>Rechteck hinzufügen</button>`}
+      ${modus === 'raeume' && letzter && !rechteck && !anhaengen && html`<button class="link" onClick=${() => {
+          setAnhaengen(raeume.find((r) => r.id === letzter.id) ?? letzter); }}>+ weiteres Rechteck für ${letzter.name}</button>`}
+      ${anhaengen && !rechteck && html`<p class="hinweis">Zweites Rechteck für ${anhaengen.name}: zwei Ecken antippen.</p>`}
+      ${modus === 'raeume' && html`<${Liste} rows=${raeume} text=${(r) => (r.flaechen?.length ? r.name : `${r.name} – neu aufziehen`)}
+        onDelete=${async (r) => { await api.softDelete('raeume', r.id); reload(); }} />`}
     </div>`}
   </div>`;
 }
