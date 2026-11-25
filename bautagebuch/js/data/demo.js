@@ -14,7 +14,7 @@ export function demoSeed() {
       { etage_id: 'e1', name: 'Bad', x: 18, y: 25 }, { etage_id: 'e1', name: 'Küche', x: 70, y: 25 },
       { etage_id: 'e1', name: 'Flur', x: 18, y: 70 }, { etage_id: 'e1', name: 'Wohnen', x: 70, y: 70 },
     ],
-    personen: [{ name: 'Person A', ist_nutzer: true }, { name: 'Person B', ist_nutzer: true }],
+    personen: [{ name: 'Person A', ist_nutzer: true, nutzer_id: 'u1' }, { name: 'Person B', ist_nutzer: true }],
     firmen: [{ name: 'Elektro Muster GmbH', gewerk_id: 'g1' }],
   };
 }

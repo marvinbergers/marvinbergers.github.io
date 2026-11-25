@@ -30,7 +30,7 @@ export function Shell({ warteschlange = 0, demo = false }) {
   const [route, setRoute] = useState(currentRoute());
   const [badges, setBadges] = useState({});
   useEffect(() => {
-    const f = () => setRoute(currentRoute());
+    const f = () => setRoute(`${currentRoute()}|${location.hash}`);
     window.addEventListener('hashchange', f);
     return () => window.removeEventListener('hashchange', f);
   }, []);
@@ -38,13 +38,14 @@ export function Shell({ warteschlange = 0, demo = false }) {
   useEffect(() => {
     api?.list('fotos').then((fotos) => setBadges({ eingang: fotos.filter(imEingang).length })).catch(() => {});
   }, [route, warteschlange]);
-  const View = views[route];
+  const name = route.split('|')[0];
+  const View = views[name];
   return html`
     ${demo && html`<div class="demo">Vorschau ohne Server – nichts wird gespeichert.</div>`}
     <${SyncBadge} count=${warteschlange} />
-    <main class="view">${View ? html`<${View} />` : html`<p class="leer">${route}</p>`}</main>
+    <main class="view">${View ? html`<${View} key=${route} />` : html`<p class="leer">${name}</p>`}</main>
     <nav class="tabs">
-      ${TABS.map((t) => html`<a href=${'#/' + t.route} class=${t.route === route ? 'aktiv' : ''} data-route=${t.route}>
+      ${TABS.map((t) => html`<a href=${'#/' + t.route} class=${t.route === name ? 'aktiv' : ''} data-route=${t.route}>
         ${t.label}${badges[t.route] ? html` <span class="badge">${badges[t.route]}</span>` : ''}</a>`)}
     </nav>`;
 }

@@ -29,6 +29,7 @@ export function createRemoteApi({ client, queue, me, onQueueChange = () => {} })
     async put(key, blob, type) { const [u] = await sign([{ method: 'PUT', key, contentType: type }]); await upload(u, blob, type); },
     syncNow: null,
   };
+  client.rpc('verknuepfe_mich').then(() => {}, () => {}); // eigene Person mit dem Login verknüpfen
   api.syncNow = startSync({ queue, sign, upload, insertFoto: (d) => api.insert('fotos', d) }, { onChange: onQueueChange });
   return api;
 }

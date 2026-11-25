@@ -91,3 +91,14 @@ describe('Verlauf, Papierkorb, Stammdaten', () => {
       .rejects.toMatchObject({ code: '23505' });
   });
 });
+
+describe('Personen ↔ Anmeldung', () => {
+  it('verknuepfe_mich() verbindet die eigene Person über die E-Mail', async () => {
+    await als(db, FAMILIE, async (tx) => {
+      await tx.query(`insert into personen(name, email, ist_nutzer) values ('Person A', 'Eins@Example.org', true)`);
+      await tx.query(`select verknuepfe_mich()`);
+      const r = await tx.query(`select nutzer_id from personen where name = 'Person A'`);
+      expect(r.rows[0].nutzer_id).toBe(FAMILIE.sub);
+    });
+  });
+});
