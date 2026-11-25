@@ -24,12 +24,12 @@ export async function runExport({ ziel, db, storage, now = () => new Date(), log
   const indexPfad = join(ziel, '.export-index.json');
   const index = existsSync(indexPfad) ? JSON.parse(readFileSync(indexPfad, 'utf8')) : {};
   const byId = (n) => new Map(t[n].map((r) => [r.id, r]));
-  const etagen = byId('etagen'); const stellen = byId('stellen'); const gewerke = byId('gewerke'); const phasen = byId('phasen');
+  const etagen = byId('etagen'); const stellen = byId('stellen'); const raeume = byId('raeume'); const gewerke = byId('gewerke'); const phasen = byId('phasen');
   const belegt = new Set(Object.values(index));
   let geladen = 0;
   for (const f of aktiv('fotos').sort((a, b) => `${a.aufgenommen_am}`.localeCompare(`${b.aufgenommen_am}`))) {
     const st = stellen.get(f.stelle_id);
-    const ordner = st ? stellenOrdner(etagen.get(st.etage_id), st) : 'Eingang';
+    const ordner = st ? stellenOrdner(etagen.get(st.etage_id), st, raeume.get(st.raum_id)) : 'Eingang';
     const vorhanden = index[f.id];
     if (vorhanden && dirname(vorhanden) === ordner && existsSync(join(ziel, vorhanden))) continue;
     let nr = 1; let rel;
@@ -46,10 +46,14 @@ export async function runExport({ ziel, db, storage, now = () => new Date(), log
     const bild = Buffer.from(await storage.get(e.plan_key)).toString('base64');
     const mime = e.plan_key.endsWith('.svg') ? 'image/svg+xml' : e.plan_key.endsWith('.png') ? 'image/png' : 'image/jpeg';
     const w = e.plan_breite || 1000; const h = e.plan_hoehe || 700;
-    const marken = aktiv('stellen').filter((s) => s.etage_id === e.id).map((s) => {
-      const x = (s.x / 100) * w; const y = (s.y / 100) * h; const r = (s.richtung_grad * Math.PI) / 180; const l = w / 40;
-      return `<g><circle cx="${x}" cy="${y}" r="${l / 2}" fill="#2f5d50"/><line x1="${x}" y1="${y}" x2="${x + Math.sin(r) * l * 1.4}" y2="${y - Math.cos(r) * l * 1.4}" stroke="#2f5d50" stroke-width="${l / 5}"/>`
-        + `<text x="${x + l}" y="${y}" font-size="${l * 0.9}" font-family="sans-serif" fill="#1f2421">${esc(s.name)}</text></g>`;
+    // Räume als Flächen mit Name und Fotozahl
+    const zahl = new Map();
+    for (const f of aktiv('fotos')) { const st = stellen.get(f.stelle_id); if (st?.raum_id) zahl.set(st.raum_id, (zahl.get(st.raum_id) ?? 0) + 1); }
+    const l = w / 45;
+    const marken = aktiv('raeume').filter((r) => r.etage_id === e.id && r.flaechen?.length).map((r) => {
+      const fl = r.flaechen.map((f) => `<rect x="${(f.x1 / 100) * w}" y="${(f.y1 / 100) * h}" width="${((f.x2 - f.x1) / 100) * w}" height="${((f.y2 - f.y1) / 100) * h}" fill="#2f5d5022" stroke="#2f5d50" stroke-width="${l / 6}"/>`).join('');
+      const f0 = r.flaechen[0]; const cx = (((f0.x1 + f0.x2) / 2) / 100) * w; const cy = (((f0.y1 + f0.y2) / 2) / 100) * h;
+      return `<g>${fl}<text x="${cx}" y="${cy}" text-anchor="middle" font-size="${l}" font-family="sans-serif" fill="#1f2421">${esc(r.name)}${zahl.get(r.id) ? ` (${zahl.get(r.id)} Fotos)` : ''}</text></g>`;
     }).join('');
     schreibe(join(ziel, 'Grundrisse', `${sauber(e.name)}.svg`), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><image href="data:${mime};base64,${bild}" width="${w}" height="${h}"/>${marken}</svg>`);
   }
