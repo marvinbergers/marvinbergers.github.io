@@ -98,3 +98,14 @@ describe('Checklisten pflegen', () => {
     expect(e.wert[1].punkte).toEqual(['vor dem Eindecken', 'nach dem Eindecken']);
   });
 });
+
+describe('Archiv herunterladen', () => {
+  it('lädt den gewählten Monat als ZIP herunter', async () => {
+    await setup();
+    api.downloadZip = vi.fn();
+    const m = el.querySelector('input[name=archiv-monat]');
+    m.value = '2027-03'; m.dispatchEvent(new Event('input', { bubbles: true })); await settle();
+    await click(byText(el, 'button', 'Archiv herunterladen')); await settle();
+    expect(api.downloadZip).toHaveBeenCalledWith(expect.any(Uint8Array), 'Bautagebuch-2027-03.zip');
+  });
+});

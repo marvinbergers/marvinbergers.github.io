@@ -5,6 +5,8 @@ import { useApi } from '../data/api.js';
 import { useLoad, useUrls, sortiert } from './hooks.js';
 import { safeName } from '../lib/keys.js';
 import { checklisten } from './Checkliste.js';
+import { monatsArchiv } from '../data/archiv.js';
+import { blobLoader } from './Share.js';
 
 const kurzId = () => crypto.randomUUID().slice(0, 8);
 async function bildMasse(api, file) {
@@ -49,6 +51,7 @@ export function Setup({ extra = null }) {
 
     <${Checklisten} api=${api} listen=${checklisten(d.data.einstellungen)} reload=${r} />
     <${Dokumente} api=${api} dokumente=${d.data.dokumente} reload=${r} />
+    <${Archiv} api=${api} />
     <${Koordinaten} api=${api} wert=${d.data.einstellungen.find((e) => e.schluessel === 'haus_koordinaten')?.wert} reload=${r} />
   </div>`;
 }
@@ -174,6 +177,23 @@ function Checklisten({ api, listen, reload }) {
       if (!name.trim() || !p.length) return;
       await speichern([...listen, { name: name.trim(), punkte: p }]); setName(''); setPunkte(''); reload();
     }}>Checkliste anlegen</button></div>`;
+}
+
+function Archiv({ api }) {
+  const [monat, setMonat] = useState(new Date().toISOString().slice(0, 7));
+  const [status, setStatus] = useState('');
+  const speichern = api.downloadZip ?? ((daten, name) => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([daten], { type: 'application/zip' })); a.download = name; a.click();
+  });
+  return html`<div><h3>Archiv</h3>
+    <p class="hinweis">Das vollständige Archiv erzeugt der wöchentliche Export. Hier: ein Monat als ZIP (Daten + Fotos).</p>
+    <div class="zeile"><input type="month" name="archiv-monat" value=${monat} onInput=${(e) => setMonat(e.target.value)} />
+      <button onClick=${async () => {
+        setStatus('Wird erstellt …');
+        try { const z = await monatsArchiv(api, monat, blobLoader(api)); speichern(z.daten, z.name); setStatus(''); }
+        catch { setStatus('Archiv konnte nicht erstellt werden (Netz?).'); }
+      }}>Archiv herunterladen</button></div>
+    ${status && html`<p class="hinweis">${status}</p>`}</div>`;
 }
 
 function Liste({ rows, text, onDelete }) {
