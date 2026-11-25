@@ -17,7 +17,9 @@ const r2 = new AwsClient({
   secretAccessKey: Deno.env.get('R2_SECRET_ACCESS_KEY')!,
   service: 's3', region: 'auto',
 });
-const BUCKET_URL = `https://${Deno.env.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com/${Deno.env.get('R2_BUCKET')}`;
+// R2_ENDPOINT = S3-Endpunkt aus Cloudflare (bei EU-Buckets mit „.eu.“), sonst aus der Konto-ID gebildet.
+const ENDPOINT = (Deno.env.get('R2_ENDPOINT') ?? `https://${Deno.env.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`).replace(/\/+$/, '');
+const BUCKET_URL = `${ENDPOINT}/${Deno.env.get('R2_BUCKET')}`;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });

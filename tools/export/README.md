@@ -22,7 +22,7 @@ Bereits vorhandene Fotos werden nicht erneut geladen. Außerdem löscht das Skri
    ```
    SUPABASE_URL=https://<projekt>.supabase.co
    SUPABASE_SECRET_KEY=<Secret key sb_secret_… aus Supabase → Project Settings → API Keys>
-   R2_ACCOUNT_ID=<Cloudflare-Konto-ID>
+   R2_ENDPOINT=<S3-API-Endpunkt aus Cloudflare, z. B. https://<konto-id>.eu.r2.cloudflarestorage.com>
    R2_ACCESS_KEY_ID=<R2-API-Token: Access Key ID>
    R2_SECRET_ACCESS_KEY=<R2-API-Token: Secret Access Key>
    R2_BUCKET=bautagebuch

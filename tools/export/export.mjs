@@ -96,7 +96,8 @@ async function main() {
   process.env.SUPABASE_SECRET_KEY ??= process.env.SUPABASE_SERVICE_ROLE_KEY; // alter Name als Rückfall
   const sb = createClient(env('SUPABASE_URL'), env('SUPABASE_SECRET_KEY'), { auth: { persistSession: false } });
   const r2 = new AwsClient({ accessKeyId: env('R2_ACCESS_KEY_ID'), secretAccessKey: env('R2_SECRET_ACCESS_KEY'), service: 's3', region: 'auto' });
-  const basis = `https://${env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com/${env('R2_BUCKET')}`;
+  const endpunkt = (process.env.R2_ENDPOINT ?? `https://${env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`).replace(/\/+$/, '');
+  const basis = `${endpunkt}/${env('R2_BUCKET')}`;
   const url = (key) => `${basis}/${key.split('/').map(encodeURIComponent).join('/')}`;
   const db = {
     async all(n) {

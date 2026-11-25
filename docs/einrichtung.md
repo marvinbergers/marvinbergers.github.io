@@ -57,7 +57,7 @@ Mit der [Supabase CLI](https://supabase.com/docs/guides/cli) im Repository-Ordne
 ```bash
 supabase login
 supabase link --project-ref <projekt-ref>
-supabase secrets set R2_ACCOUNT_ID=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… R2_BUCKET=bautagebuch \
+supabase secrets set R2_ENDPOINT=https://<konto-id>[.eu].r2.cloudflarestorage.com R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… R2_BUCKET=bautagebuch \
   APP_ORIGIN=https://marvinbergers.github.io APP_PUBLISHABLE_KEY=sb_publishable_…
 supabase functions deploy r2-sign
 ```
