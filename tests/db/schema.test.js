@@ -113,24 +113,6 @@ describe('Checkliste', () => {
   });
 });
 
-describe('Räume mit Flächen und Wand-Stellen (0006)', () => {
-  it('Raum nur mit Flächen; eine aktive Stelle je Raum und Seite', async () => {
-    await als(db, FAMILIE, async (tx) => {
-      const e = (await tx.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
-      const r = (await tx.query(`insert into raeume(etage_id, name, flaechen) values ($1, 'Bad', '[{"x1":0,"y1":0,"x2":20,"y2":30}]') returning id`, [e])).rows[0].id;
-      const s = (await tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'Bad – Nordwand', $2, 'oben') returning id`, [e, r])).rows[0].id;
-      await tx.query('savepoint a');
-      await expect(tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'x', $2, 'oben')`, [e, r])).rejects.toMatchObject({ code: '23505' });
-      await tx.query('rollback to savepoint a');
-      await expect(tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'x', $2, 'seitlich')`, [e, r])).rejects.toThrow();
-      await tx.query('rollback to savepoint a');
-      await tx.query(`update stellen set geloescht_am = now() where id = $1`, [s]);
-      await tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1, 'Bad – Nordwand', $2, 'oben')`, [e, r]);
-      expect((await tx.query(`select flaechen from raeume_aktiv`)).rows[0].flaechen[0].x2).toBe(20);
-    });
-  });
-});
-
 describe('Altbestand (gezogene Stellen) wird bei 0006 umgestellt', () => {
   it('Fotos in den Eingang, alte Stellen in den Papierkorb', async () => {
     const { PGlite } = await import('@electric-sql/pglite');
@@ -147,5 +129,68 @@ describe('Altbestand (gezogene Stellen) wird bei 0006 umgestellt', () => {
     for (const f of dateien.filter((f) => f >= '0006')) await alt.exec(readFileSync(`supabase/migrations/${f}`, 'utf8'));
     expect((await alt.query(`select stelle_id from fotos`)).rows[0].stelle_id).toBeNull();
     expect((await alt.query(`select geloescht_am from stellen`)).rows[0].geloescht_am).not.toBeNull();
+  });
+});
+
+describe('0007: Räume als Vieleck', () => {
+  async function vor0007(fn) {
+    const { PGlite } = await import('@electric-sql/pglite');
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const d = new PGlite();
+    await d.exec(`create role anon nologin; create role authenticated nologin; create schema auth;
+      create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+      create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;`);
+    const dateien = readdirSync('supabase/migrations').sort();
+    for (const f of dateien.filter((f) => f < '0007')) await d.exec(readFileSync(`supabase/migrations/${f}`, 'utf8'));
+    await fn(d);
+    for (const f of dateien.filter((f) => f >= '0007')) await d.exec(readFileSync(`supabase/migrations/${f}`, 'utf8'));
+    return d;
+  }
+
+  it('Rechteck-Raum → 4 Ecken; Wandfotos bleiben an der passenden Linie', async () => {
+    let raum; const st = {};
+    const d = await vor0007(async (db0) => {
+      const e = (await db0.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
+      raum = (await db0.query(`insert into raeume(etage_id, name, flaechen) values ($1,'Bad','[{"x1":10,"y1":20,"x2":30,"y2":40}]') returning id`, [e])).rows[0].id;
+      for (const s of ['oben', 'rechts', 'unten', 'links', 'boden']) {
+        st[s] = (await db0.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1,'x',$2,$3) returning id`, [e, raum, s])).rows[0].id;
+      }
+    });
+    const r = (await d.query(`select ecken, pruefen from raeume where id = $1`, [raum])).rows[0];
+    expect(r.ecken).toEqual([{ id: 'a', x: 10, y: 20 }, { id: 'b', x: 30, y: 20 }, { id: 'c', x: 30, y: 40 }, { id: 'd', x: 10, y: 40 }]);
+    expect(r.pruefen).toBe(false);
+    const get = async (id) => (await d.query(`select seite, kante from stellen where id = $1`, [id])).rows[0];
+    expect(await get(st.oben)).toEqual({ seite: 'wand', kante: 'a' });
+    expect(await get(st.rechts)).toEqual({ seite: 'wand', kante: 'b' });
+    expect(await get(st.unten)).toEqual({ seite: 'wand', kante: 'c' });
+    expect(await get(st.links)).toEqual({ seite: 'wand', kante: 'd' });
+    expect(await get(st.boden)).toEqual({ seite: 'boden', kante: null });
+  });
+
+  it('Raum aus mehreren Rechtecken → umschließender Umriss, „bitte prüfen“', async () => {
+    let raum;
+    const d = await vor0007(async (db0) => {
+      const e = (await db0.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
+      raum = (await db0.query(`insert into raeume(etage_id, name, flaechen) values ($1,'L','[{"x1":0,"y1":0,"x2":20,"y2":10},{"x1":0,"y1":10,"x2":10,"y2":30}]') returning id`, [e])).rows[0].id;
+    });
+    const r = (await d.query(`select ecken, pruefen from raeume where id = $1`, [raum])).rows[0];
+    expect(r.ecken.map((p) => [p.x, p.y])).toEqual([[0, 0], [20, 0], [20, 30], [0, 30]]);
+    expect(r.pruefen).toBe(true);
+  });
+
+  it('eine aktive Wand je Raum und Kante', async () => {
+    await als(db, FAMILIE, async (tx) => {
+      const e = (await tx.query(`insert into etagen(name) values ('EG') returning id`)).rows[0].id;
+      const r = (await tx.query(`insert into raeume(etage_id, name, ecken) values ($1,'Bad','[{"id":"a","x":0,"y":0},{"id":"b","x":1,"y":0},{"id":"c","x":1,"y":1}]') returning id`, [e])).rows[0].id;
+      await tx.query(`insert into stellen(etage_id, name, raum_id, seite, kante) values ($1,'x',$2,'wand','a')`, [e, r]);
+      await tx.query(`insert into stellen(etage_id, name, raum_id, seite, kante) values ($1,'x',$2,'wand','b')`, [e, r]);
+      await tx.query('savepoint s');
+      await expect(tx.query(`insert into stellen(etage_id, name, raum_id, seite, kante) values ($1,'x',$2,'wand','a')`, [e, r])).rejects.toMatchObject({ code: '23505' });
+      await tx.query('rollback to savepoint s');
+      await tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1,'x',$2,'boden')`, [e, r]);
+      await tx.query('savepoint t');
+      await expect(tx.query(`insert into stellen(etage_id, name, raum_id, seite) values ($1,'x',$2,'boden')`, [e, r])).rejects.toMatchObject({ code: '23505' });
+      await tx.query('rollback to savepoint t');
+    });
   });
 });
