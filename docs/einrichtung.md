@@ -31,8 +31,9 @@ Nichts davon kostet Geld; für Cloudflare R2 muss aber ein Zahlungsmittel hinter
    Supabase-Teams und nur wenige Mails pro Stunde. Für die Familie einen eigenen SMTP-Dienst eintragen
    (*Authentication → Emails → SMTP Settings*), z. B. den Mailversand deines E-Mail-Anbieters oder einen
    kostenlosen Dienst wie Brevo. Danach mit einer Adresse testen.
-6. *Project Settings → API*: **Project URL** und **anon public key** notieren (für Schritt 3).
-   Den **service_role**-Schlüssel nur für den Export auf dem PC verwenden (siehe `tools/export/README.md`).
+6. *Project Settings → API Keys*: **Project URL** und den **Publishable key** (`sb_publishable_…`) notieren.
+   Den **Secret key** (`sb_secret_…`) nur für den Export auf dem PC verwenden (siehe `tools/export/README.md`).
+   Die alten „Legacy API keys“ (anon/service_role) werden Anfang 2027 abgeschaltet – nicht verwenden.
 
 ## 2. Cloudflare R2 (Fotos und Pläne)
 
@@ -57,15 +58,16 @@ Mit der [Supabase CLI](https://supabase.com/docs/guides/cli) im Repository-Ordne
 supabase login
 supabase link --project-ref <projekt-ref>
 supabase secrets set R2_ACCOUNT_ID=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… R2_BUCKET=bautagebuch \
-  APP_ORIGIN=https://marvinbergers.github.io
+  APP_ORIGIN=https://marvinbergers.github.io APP_PUBLISHABLE_KEY=sb_publishable_…
 supabase functions deploy r2-sign
 ```
 
-`SUPABASE_URL` und `SUPABASE_ANON_KEY` stellt Supabase der Funktion automatisch bereit.
+`SUPABASE_URL` stellt Supabase der Funktion automatisch bereit. In den Funktions-Einstellungen
+**„Verify JWT with legacy secret“ ausschalten** – die Funktion prüft die Anmeldung selbst.
 
 ## 4. App verbinden und veröffentlichen
 
-1. In `bautagebuch/js/config.js` **Project URL** und **anon key** eintragen. Beide dürfen öffentlich sein –
+1. In `bautagebuch/js/config.js` **Project URL** und **Publishable key** eintragen. Beide dürfen öffentlich sein –
    ohne Freischaltung sieht man nichts (Zugriffsregeln in der Datenbank).
 2. Den Branch nach `main` übernehmen. GitHub Pages veröffentlicht die App dann unter
    **https://marvinbergers.github.io/bautagebuch/**.

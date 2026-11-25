@@ -1,6 +1,6 @@
 // Supabase Edge Function: stellt kurzlebige signierte URLs für den privaten R2-Bucket aus.
 // Nur für angemeldete Familienmitglieder (Prüfung über ist_familie() mit dem Token des Nutzers).
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.119.0';
 import { AwsClient } from 'https://esm.sh/aws4fetch@1.0.20';
 import { validateRequest, GUELTIG_SEKUNDEN } from './logic.ts';
 
@@ -25,7 +25,8 @@ Deno.serve(async (req) => {
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer /, '');
   if (!token) return json(401, { fehler: 'nicht angemeldet' });
-  const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+  // Neuer Publishable Key (als Secret APP_PUBLISHABLE_KEY hinterlegt); alter anon-Key nur als Rückfall.
+  const sb = createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get('APP_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY'))!, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const { data: u, error: ue } = await sb.auth.getUser(token);

@@ -93,7 +93,8 @@ async function main() {
   const env = (k) => { if (!process.env[k]) { console.error(`Fehlt in tools/export/.env: ${k}`); process.exit(2); } return process.env[k]; };
   const { createClient } = await import('@supabase/supabase-js');
   const { AwsClient } = await import('aws4fetch');
-  const sb = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+  process.env.SUPABASE_SECRET_KEY ??= process.env.SUPABASE_SERVICE_ROLE_KEY; // alter Name als Rückfall
+  const sb = createClient(env('SUPABASE_URL'), env('SUPABASE_SECRET_KEY'), { auth: { persistSession: false } });
   const r2 = new AwsClient({ accessKeyId: env('R2_ACCESS_KEY_ID'), secretAccessKey: env('R2_SECRET_ACCESS_KEY'), service: 's3', region: 'auto' });
   const basis = `https://${env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com/${env('R2_BUCKET')}`;
   const url = (key) => `${basis}/${key.split('/').map(encodeURIComponent).join('/')}`;

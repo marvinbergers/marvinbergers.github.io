@@ -21,13 +21,13 @@ Bereits vorhandene Fotos werden nicht erneut geladen. Außerdem löscht das Skri
 3. Datei `tools/export/.env` anlegen (**nie ins Repository**, steht in `.gitignore`):
    ```
    SUPABASE_URL=https://<projekt>.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=<service_role-Schlüssel aus Supabase → Project Settings → API>
+   SUPABASE_SECRET_KEY=<Secret key sb_secret_… aus Supabase → Project Settings → API Keys>
    R2_ACCOUNT_ID=<Cloudflare-Konto-ID>
    R2_ACCESS_KEY_ID=<R2-API-Token: Access Key ID>
    R2_SECRET_ACCESS_KEY=<R2-API-Token: Secret Access Key>
    R2_BUCKET=bautagebuch
    ```
-   Der Service-Role-Schlüssel umgeht alle Zugriffsregeln – er gehört nur auf diesen PC.
+   Der Secret key umgeht alle Zugriffsregeln – er gehört nur auf diesen PC.
 4. Testlauf:
    ```
    node tools/export/export.mjs --ziel "C:\Users\<du>\OneDrive\Dokumente\Haus Umbau\Bautagebuch-Archiv"
