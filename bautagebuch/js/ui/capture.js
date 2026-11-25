@@ -57,7 +57,7 @@ export async function enqueuePhoto(api, file, felder) {
 
 /** Gewerk/Phase nachtragen: im Gerät, solange das Foto wartet, sonst in der Datenbank. */
 export async function setzeKategorie(api, fotoId, felder) {
-  const wartet = await api.queue.patch?.(fotoId, felder);
+  const wartet = await api.queue?.patch?.(fotoId, felder);
   if (!wartet) await api.update('fotos', fotoId, felder);
   api.syncNow?.();
 }

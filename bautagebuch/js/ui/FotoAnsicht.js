@@ -4,9 +4,13 @@ import { useState } from '../vendor/preact.js';
 import { useApi } from '../data/api.js';
 import { useUrls } from './hooks.js';
 import { History } from './History.js';
+import { CategoryPicker } from './CategoryPicker.js';
+import { setzeKategorie } from './capture.js';
 
-export function FotoAnsicht({ foto, gewerke = [], phasen = [], onClose, onChanged = () => {} }) {
+export function FotoAnsicht({ foto: fotoStart, gewerke = [], phasen = [], onClose, onChanged = () => {} }) {
   const api = useApi();
+  const [foto, setFoto] = useState(fotoStart);
+  const [aendern, setAendern] = useState(false);
   const urls = useUrls(api, [foto.key_bild]);
   const [frage, setFrage] = useState(false);
   const [verlauf, setVerlauf] = useState(false);
@@ -16,7 +20,15 @@ export function FotoAnsicht({ foto, gewerke = [], phasen = [], onClose, onChange
     ${urls[foto.key_bild] && html`<img class="gross-bild" src=${urls[foto.key_bild]} alt="" />`}
     <p class="hinweis">${[g, p].filter(Boolean).join(' · ') || 'Noch nicht einsortiert'}${foto.checkpunkt ? ` · ${foto.checkpunkt}` : ''}</p>
     ${foto.notiz && html`<p>${foto.notiz}</p>`}
+    ${aendern && html`<${CategoryPicker} gewerke=${gewerke} phasen=${phasen}
+      start=${{ gewerk_id: foto.gewerk_id, phase_id: foto.phase_id, notiz: foto.notiz ?? '' }}
+      onComplete=${async (felder) => {
+        const neu = { gewerk_id: felder.gewerk_id, phase_id: felder.phase_id, notiz: felder.notiz || null };
+        await setzeKategorie(api, foto.id, neu);
+        setFoto({ ...foto, ...neu }); setAendern(false); onChanged();
+      }} />`}
     <div class="knopfgitter klein">
+      ${!aendern && html`<button onClick=${() => setAendern(true)}>Gewerk/Phase ändern</button>`}
       <button onClick=${() => setVerlauf(!verlauf)}>Verlauf</button>
       <button onClick=${() => setFrage(true)}>Löschen</button>
     </div>

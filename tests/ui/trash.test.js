@@ -27,6 +27,26 @@ describe('Löschen', () => {
   });
 });
 
+describe('Gewerk/Phase nachträglich ändern', () => {
+  it('zeigt den aktuellen Stand und speichert die Änderung', async () => {
+    const api = createMemoryApi({ seed: { fotos: [{ id: 'f1', sha256: '1', tag: '2027-03-17', gewerk_id: null, phase_id: 'p1' }] } });
+    const gewerke = [{ id: 'g1', name: 'Elektro' }]; const phasen = [{ id: 'p1', name: 'Rohbau' }, { id: 'p2', name: 'Installation' }];
+    const onChanged = vi.fn();
+    const el = mount(html`<${ApiContext.Provider} value=${api}><${FotoAnsicht} foto=${(await api.list('fotos'))[0]} gewerke=${gewerke} phasen=${phasen} onClose=${() => {}} onChanged=${onChanged} /><//>`);
+    await settle();
+    expect(el.textContent).toContain('Rohbau');
+    await click(byText(el, 'button', 'Gewerk/Phase ändern'));
+    expect(el.querySelector('.phasen button[data-id="p1"]').getAttribute('aria-pressed')).toBe('true'); // aktueller Stand
+    await click(byText(el, '.gewerke button', 'Elektro'));
+    await click(byText(el, '.phasen button', 'Installation'));
+    await click(byText(el, '.picker button', 'Speichern'));
+    await settle();
+    expect((await api.list('fotos'))[0]).toMatchObject({ gewerk_id: 'g1', phase_id: 'p2' });
+    expect(onChanged).toHaveBeenCalled();
+    expect(el.textContent).toContain('Elektro · Installation');
+  });
+});
+
 describe('Papierkorb', () => {
   it('zeigt Gelöschtes der letzten 90 Tage und stellt wieder her', async () => {
     const jetzt = new Date('2027-06-01T10:00:00Z');

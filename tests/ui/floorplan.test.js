@@ -41,9 +41,21 @@ describe('FloorPlan mit Räumen', () => {
     await tippe(flaeche, 300, 800);
     expect(cb.onRoom).not.toHaveBeenCalled();
   });
-  it('zeigt die Fotozahl je Raum', async () => {
-    const { el } = await setup();
-    expect(el.querySelector('[data-raum="bad"]').textContent).toContain('3');
+  it('Übersicht: je Raum nur ein schlichter Punkt – keine Flächen, keine Zahl, kein Symbol', async () => {
+    const { el, cb } = await setup();
+    expect(el.querySelectorAll('.raum-flaeche')).toHaveLength(0);
+    const punkt = el.querySelector('.raum-punkt[data-raum="bad"]');
+    expect(punkt).not.toBeNull();
+    expect(punkt.textContent.trim()).toBe('');
+    expect([punkt.style.left, punkt.style.top]).toEqual(['10%', '15%']);
+    await click(punkt);
+    expect(cb.onRoom).toHaveBeenCalledWith(bad);
+  });
+  it('L-Raum: Punkt liegt in der Mitte des größten Rechtecks', async () => {
+    const l = { id: 'l', name: 'Wohnen', flaechen: [{ x1: 30, y1: 50, x2: 40, y2: 60 }, { x1: 30, y1: 0, x2: 60, y2: 50 }] };
+    const { el } = await setup({ raeume: [l] });
+    const p = el.querySelector('.raum-punkt[data-raum="l"]');
+    expect([p.style.left, p.style.top]).toEqual(['45%', '25%']);
   });
   it('kein Ziehen mehr: Drücken und Ziehen legt nichts an', async () => {
     const { el, cb, flaeche } = await setup();
@@ -83,8 +95,8 @@ describe('FloorPlan mit Räumen', () => {
   });
   it('Räume ohne passende Fotos werden beim Filtern abgedunkelt', async () => {
     const { el } = await setup({ gedimmt: new Set(['ku']) });
-    expect(el.querySelector('[data-raum="ku"]').classList.contains('gedimmt')).toBe(true);
-    expect(el.querySelector('[data-raum="bad"]').classList.contains('gedimmt')).toBe(false);
+    expect(el.querySelector('.raum-punkt[data-raum="ku"]').classList.contains('gedimmt')).toBe(true);
+    expect(el.querySelector('.raum-punkt[data-raum="bad"]').classList.contains('gedimmt')).toBe(false);
   });
 });
 

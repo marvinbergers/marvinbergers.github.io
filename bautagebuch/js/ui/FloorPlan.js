@@ -3,7 +3,7 @@
 import { html } from '../vendor/htm.js';
 import { useState, useRef, useEffect } from '../vendor/preact.js';
 import { fitTransform } from '../lib/geometry.js';
-import { roomAt, roomBox, fitView, wandNamen } from '../lib/rooms.js';
+import { roomAt, roomBox, fitView, wandNamen, raumPunkt } from '../lib/rooms.js';
 
 export function FloorPlan({
   etage, planUrl, bestandUrl, raeume = [], raumZahlen = {}, gedimmt = new Set(), aktiverRaum = null, wandZahlen = {},
@@ -34,6 +34,7 @@ export function FloorPlan({
 
   function tipp(e) {
     if (gezoomt.current) { gezoomt.current = false; return; }
+    if (e.target.closest?.('.raum-punkt')) return; // der Punkt hat einen eigenen Klick
     const raum = roomAt(toPlan(e), raeume);
     if (raum && raum.id !== aktiverRaum?.id) onRoom(raum);
   }
@@ -96,13 +97,10 @@ export function FloorPlan({
         ${planUrl ? html`<img class="plan-bild" src=${planUrl} alt=${`Grundriss ${etage?.name ?? ''}`} draggable="false" />`
                   : html`<p class="hinweis">Noch kein Grundriss für diese Etage. Unter Einrichtung hochladen.</p>`}
         ${bestand && bestandUrl && html`<img class="plan-bestand" src=${bestandUrl} alt="Bestandsplan" style=${bestandStil} draggable="false" />`}
-        ${raeume.filter((r) => r.flaechen?.length).map((r) => {
-          const b = roomBox(r);
-          return html`<div class=${`raum${gedimmt.has(r.id) ? ' gedimmt' : ''}${aktiverRaum?.id === r.id ? ' aktiv' : ''}`} data-raum=${r.id}>
-            ${r.flaechen.map((f) => html`<span class="raum-flaeche" style=${`left:${f.x1}%;top:${f.y1}%;width:${f.x2 - f.x1}%;height:${f.y2 - f.y1}%`}></span>`)}
-            ${!aktiverRaum && html`<span class="raum-zahl" style=${`left:${(b.x1 + b.x2) / 2}%;top:${(b.y1 + b.y2) / 2}%;transform:translate(-50%,-50%) ${gegen}`}>
-              ${raumZahlen[r.id] ? `📷 ${raumZahlen[r.id]}` : ''}</span>`}
-          </div>`;
+        ${!aktiverRaum && raeume.filter((r) => r.flaechen?.length).map((r) => {
+          const p = raumPunkt(r);
+          return html`<button class=${`raum-punkt${gedimmt.has(r.id) ? ' gedimmt' : ''}`} data-raum=${r.id} aria-label=${r.name} title=${r.name}
+            style=${`left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%) ${gegen}`} onClick=${() => onRoom(r)}></button>`;
         })}
         ${box && html`<div class="raum-fokus" style=${`left:${box.x1}%;top:${box.y1}%;width:${box.x2 - box.x1}%;height:${box.y2 - box.y1}%`}></div>`}
       </div>

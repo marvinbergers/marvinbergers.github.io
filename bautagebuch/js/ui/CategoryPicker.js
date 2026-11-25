@@ -4,12 +4,13 @@ import { useState } from '../vendor/preact.js';
 
 const SICHTBAR = 5;
 
-export function CategoryPicker({ gewerke = [], phasen = [], onComplete, vorschau = null, titel = null }) {
-  const [gewerk, setGewerk] = useState(null);
-  const [phase, setPhase] = useState(null);
-  const [alle, setAlle] = useState(false);
-  const [notizOffen, setNotizOffen] = useState(false);
-  const [notiz, setNotiz] = useState('');
+// start: aktueller Stand beim nachträglichen Ändern (bei neuen Fotos leer – nie vorausgewählt).
+export function CategoryPicker({ gewerke = [], phasen = [], onComplete, vorschau = null, titel = null, start = null }) {
+  const [gewerk, setGewerk] = useState(start?.gewerk_id ?? null);
+  const [phase, setPhase] = useState(start?.phase_id ?? null);
+  const [alle, setAlle] = useState(!!start?.gewerk_id && gewerke.findIndex((g) => g.id === start.gewerk_id) >= SICHTBAR);
+  const [notizOffen, setNotizOffen] = useState(!!start?.notiz);
+  const [notiz, setNotiz] = useState(start?.notiz ?? '');
   const [fertig, setFertig] = useState(false);
 
   const sichtbar = alle ? gewerke : gewerke.slice(0, SICHTBAR);

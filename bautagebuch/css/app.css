@@ -110,3 +110,5 @@ a.btn.primaer { background: var(--accent); color: var(--accent-fg); border-color
 .raum-rahmen { position: absolute; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); pointer-events: none; display: grid; place-items: center; }
 .raum-rahmen b { font-size: 12px; background: var(--card); padding: 0 4px; border-radius: 4px; }
 .raum-rahmen.neu { border-style: dashed; border-color: var(--warn); }
+.raum-punkt { position: absolute; width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 1px 5px #0006; z-index: 2; }
+.raum-punkt.gedimmt { opacity: .3; }

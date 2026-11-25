@@ -43,3 +43,9 @@ export function wandNamen(nordGrad = 0) {
 }
 
 export const wandTitel = (raum, seite, nordGrad) => `${raum.name} – ${wandNamen(nordGrad)[seite]}`;
+
+/** Punkt für die Übersicht: Mitte des größten Rechtecks (liegt so auch bei L-Räumen sicher im Raum). */
+export function raumPunkt(raum) {
+  const f = [...(raum.flaechen ?? [])].sort((a, b) => flaeche(b) - flaeche(a))[0];
+  return f ? { x: Math.round(((f.x1 + f.x2) / 2) * 100) / 100, y: Math.round(((f.y1 + f.y2) / 2) * 100) / 100 } : null;
+}
