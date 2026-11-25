@@ -1,37 +1,45 @@
-// Grundriss mit Stellen. Ein Finger: Drücken und in Blickrichtung ziehen = neue Stelle.
-// Zwei Finger: zoomen und verschieben. Tipp auf eine Stelle: auswählen.
+// Grundriss mit Räumen. Tipp auf einen Raum: Raum groß, dann eine Wand (oder Boden/Decke) antippen.
+// Zwei Finger: zoomen und verschieben.
 import { html } from '../vendor/htm.js';
-import { useState, useRef } from '../vendor/preact.js';
-import { dragToDirection, suggestName, fitTransform } from '../lib/geometry.js';
-
-const rund = (v) => Math.round(v * 100) / 100;
+import { useState, useRef, useEffect } from '../vendor/preact.js';
+import { fitTransform } from '../lib/geometry.js';
+import { roomAt, roomBox, fitView, wandNamen } from '../lib/rooms.js';
 
 export function FloorPlan({
-  etage, planUrl, bestandUrl, stellen = [], raeume = [], verschiebe = null,
-  onSelectStelle = () => {}, onCreateStelle = () => {}, onMoveStelle = () => {}, onQuickPhoto = () => {},
-  kopf = null,
+  etage, planUrl, bestandUrl, raeume = [], raumZahlen = {}, gedimmt = new Set(), aktiverRaum = null, wandZahlen = {},
+  onRoom = () => {}, onWand = () => {}, onQuickPhoto = () => {}, kopf = null, ohneSchnellfoto = false,
 }) {
   const inhalt = useRef(null);
   const rahmen = useRef(null);
   const pointer = useRef(new Map());
-  const start = useRef(null);
   const pinch = useRef(null);
+  const gezoomt = useRef(false); // nach einer Zwei-Finger-Geste keinen Raum-Tipp auslösen
   const [ansicht, setAnsicht] = useState({ s: 1, x: 0, y: 0 });
-  const [neu, setNeu] = useState(null);
   const [bestand, setBestand] = useState(false);
   const aspect = etage?.plan_breite && etage?.plan_hoehe ? etage.plan_breite / etage.plan_hoehe : 1;
+  const namen = wandNamen(etage?.nord_grad ?? 0);
+
+  // Raum aktiv → auf ihn zoomen; kein Raum → Gesamtansicht.
+  useEffect(() => {
+    const r = rahmen.current;
+    if (!aktiverRaum?.flaechen?.length || !r?.clientWidth) { setAnsicht({ s: 1, x: 0, y: 0 }); return; }
+    const frame = { w: r.clientWidth, h: r.clientHeight };
+    setAnsicht(fitView(roomBox(aktiverRaum), frame, 0.08, frame));
+  }, [aktiverRaum?.id]);
 
   const toPlan = (e) => {
     const r = inhalt.current.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 };
   };
 
+  function tipp(e) {
+    if (gezoomt.current) { gezoomt.current = false; return; }
+    const raum = roomAt(toPlan(e), raeume);
+    if (raum && raum.id !== aktiverRaum?.id) onRoom(raum);
+  }
   function down(e) {
-    if (e.target.closest?.('[data-stelle], button')) return;
     pointer.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointer.current.size === 1) start.current = toPlan(e);
     if (pointer.current.size === 2) {
-      start.current = null;
       const [a, b] = [...pointer.current.values()];
       pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, ansicht };
     }
@@ -44,24 +52,14 @@ export function FloorPlan({
       const p = pinch.current;
       const s = Math.min(6, Math.max(1, p.ansicht.s * (Math.hypot(a.x - b.x, a.y - b.y) / p.d)));
       const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      // Punkt unter der Fingermitte bleibt unter der Fingermitte.
       const k = s / p.ansicht.s;
+      gezoomt.current = true;
       setAnsicht({ s, x: m.x - k * (p.m.x - p.ansicht.x), y: m.y - k * (p.m.y - p.ansicht.y) });
     }
   }
   function up(e) {
-    const war = pointer.current.size;
     pointer.current.delete(e.pointerId);
-    if (war === 2) { pinch.current = null; return; }
-    if (!start.current) return;
-    const ende = toPlan(e);
-    const richtung = dragToDirection(start.current, ende, aspect);
-    const p = start.current;
-    start.current = null;
-    if (richtung === null) return;
-    const pos = { x: rund(p.x), y: rund(p.y), richtung_grad: richtung };
-    if (verschiebe) { onMoveStelle(verschiebe.id, pos); return; }
-    setNeu({ ...pos, name: suggestName(p, richtung, etage?.nord_grad ?? 0, raeume) });
+    if (pointer.current.size < 2) pinch.current = null;
   }
 
   // Knöpfe zoomen zur Mitte des sichtbaren Ausschnitts hin.
@@ -75,37 +73,41 @@ export function FloorPlan({
   let bestandStil = '';
   if (bestand && etage?.bestand_passpunkte) {
     const t = fitTransform(etage.bestand_passpunkte.plan, etage.bestand_passpunkte.bestand);
-    // Passpunkte liegen in Prozent; Verschiebung daher in Prozent der Fläche.
     bestandStil = `transform: translate(${t.tx}%, ${t.ty}%) rotate(${t.rotation}rad) scale(${t.scale}); transform-origin: 0 0;`;
   }
+  const gegen = `scale(${Math.round((1 / ansicht.s) * 1e4) / 1e4})`; // Beschriftungen bleiben gleich groß
+  const box = aktiverRaum?.flaechen?.length ? roomBox(aktiverRaum) : null;
+  const wandKnopf = (seite, cls) => html`<button class=${`wand ${cls}`} data-seite=${seite} onClick=${() => onWand(seite)}>
+    ${namen[seite]}${wandZahlen[seite] ? html` <span class="zahl">${wandZahlen[seite]}</span>` : ''}</button>`;
 
   return html`<div class="grundriss">
     <div class="grundriss-kopf">
-      ${kopf}
+      ${aktiverRaum ? html`<button class="zurueck" onClick=${() => onRoom(null)}>‹ Grundriss</button><b class="flex1">${aktiverRaum.name}</b>` : kopf}
       ${etage?.bestand_key && html`<button class="bestand-schalter" aria-pressed=${bestand} onClick=${() => setBestand(!bestand)}>Bestand</button>`}
-      <button class="zoom" aria-label="Vergrößern" onClick=${() => zoom(1.4)}>+</button>
-      <button class="zoom" aria-label="Verkleinern" onClick=${() => zoom(1 / 1.4)}>−</button>
-      <button class="schnellfoto primaer" aria-label="Schnellfoto" onClick=${onQuickPhoto}>📷</button>
+      ${!aktiverRaum && html`<button class="zoom" aria-label="Vergrößern" onClick=${() => zoom(1.4)}>+</button>
+      <button class="zoom" aria-label="Verkleinern" onClick=${() => zoom(1 / 1.4)}>−</button>`}
+      ${!ohneSchnellfoto && html`<button class="schnellfoto primaer" aria-label="Schnellfoto" onClick=${onQuickPhoto}>📷</button>`}
     </div>
-    ${verschiebe && html`<p class="hinweis">Neue Position: auf den Plan drücken und in Blickrichtung ziehen.</p>`}
-    <div class="plan-rahmen" ref=${rahmen}>
+    ${!aktiverRaum && raeume.some((r) => r.flaechen?.length) && html`<p class="hinweis klein">Raum antippen, dann die Wand.</p>`}
+    <div class=${`plan-rahmen${aktiverRaum ? ' raumansicht' : ''}`} ref=${rahmen}>
       <div class="plan-inhalt" ref=${inhalt}
         style=${`transform: translate(${ansicht.x}px, ${ansicht.y}px) scale(${ansicht.s}); aspect-ratio: ${aspect};`}
-        onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}>
+        onClick=${tipp} onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}>
         ${planUrl ? html`<img class="plan-bild" src=${planUrl} alt=${`Grundriss ${etage?.name ?? ''}`} draggable="false" />`
                   : html`<p class="hinweis">Noch kein Grundriss für diese Etage. Unter Einrichtung hochladen.</p>`}
         ${bestand && bestandUrl && html`<img class="plan-bestand" src=${bestandUrl} alt="Bestandsplan" style=${bestandStil} draggable="false" />`}
-        ${stellen.map((s) => html`<button class="stelle" data-stelle=${s.id} title=${s.name}
-            style=${`left:${s.x}%;top:${s.y}%;transform:translate(-50%,-50%) scale(${Math.round((1 / ansicht.s) * 1e4) / 1e4})`} onClick=${() => onSelectStelle(s)}>
-            <span class="pfeil" style=${`transform: rotate(${s.richtung_grad}deg)`}>▲</span></button>`)}
+        ${raeume.filter((r) => r.flaechen?.length).map((r) => {
+          const b = roomBox(r);
+          return html`<div class=${`raum${gedimmt.has(r.id) ? ' gedimmt' : ''}${aktiverRaum?.id === r.id ? ' aktiv' : ''}`} data-raum=${r.id}>
+            ${r.flaechen.map((f) => html`<span class="raum-flaeche" style=${`left:${f.x1}%;top:${f.y1}%;width:${f.x2 - f.x1}%;height:${f.y2 - f.y1}%`}></span>`)}
+            ${!aktiverRaum && html`<span class="raum-zahl" style=${`left:${(b.x1 + b.x2) / 2}%;top:${(b.y1 + b.y2) / 2}%;transform:translate(-50%,-50%) ${gegen}`}>
+              ${raumZahlen[r.id] ? `📷 ${raumZahlen[r.id]}` : ''}</span>`}
+          </div>`;
+        })}
+        ${box && html`<div class="raum-fokus" style=${`left:${box.x1}%;top:${box.y1}%;width:${box.x2 - box.x1}%;height:${box.y2 - box.y1}%`}></div>`}
       </div>
+      ${aktiverRaum && html`${wandKnopf('oben', 'w-oben')}${wandKnopf('rechts', 'w-rechts')}${wandKnopf('unten', 'w-unten')}${wandKnopf('links', 'w-links')}`}
     </div>
-    ${neu && html`<div class="dialog karte" role="dialog" aria-label="Neue Stelle">
-      <label>Name der Stelle<input name="stellenname" value=${neu.name} onInput=${(e) => setNeu({ ...neu, name: e.target.value })} /></label>
-      <div class="knopfgitter">
-        <button onClick=${() => setNeu(null)}>Abbrechen</button>
-        <button class="primaer" onClick=${() => { const { name, ...pos } = neu; setNeu(null); onCreateStelle({ ...pos, name: name.trim() || neu.name }); }}>Anlegen</button>
-      </div>
-    </div>`}
+    ${aktiverRaum && html`<div class="knopfgitter boden-decke">${wandKnopf('boden', '')}${wandKnopf('decke', '')}</div>`}
   </div>`;
 }

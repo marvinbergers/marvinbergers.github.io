@@ -12,7 +12,7 @@ async function apiMit(fotos = []) {
   const queue = await openQueue(`inbox-${Math.random()}`);
   const api = createMemoryApi({ queue, seed: {
     etagen: [{ id: 'e1', name: 'EG', sortierung: 1 }],
-    stellen: [{ id: 's1', etage_id: 'e1', name: 'Bad – Ostwand', x: 10, y: 10, richtung_grad: 90 }],
+    raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] }],
     gewerke: [{ id: 'g1', name: 'Elektro', sortierung: 1 }],
     fotos,
   } });
@@ -55,8 +55,8 @@ describe('Inbox', () => {
   it('zeigt nur nicht einsortierte Fotos und sortiert mehrere auf einmal ein', async () => {
     const api = await apiMit([
       { id: 'f1', sha256: '1', tag: '2027-03-17' },
-      { id: 'f2', sha256: '2', tag: '2027-03-17', stelle_id: 's1' }, // Stelle ja, Gewerk/Phase fehlen → noch im Eingang
-      { id: 'f3', sha256: '3', tag: '2027-03-17', stelle_id: 's1', gewerk_id: 'g1', phase_id: 'p1' },
+      { id: 'f2', sha256: '2', tag: '2027-03-17' },
+      { id: 'f3', sha256: '3', tag: '2027-03-17', stelle_id: 'irgendeine' }, // an einer Wand → einsortiert, auch ohne Gewerk/Phase
     ]);
     const el = mount(html`<${ApiContext.Provider} value=${api}><${Inbox} /><//>`);
     for (let i = 0; i < 4; i++) await flush();
@@ -65,11 +65,19 @@ describe('Inbox', () => {
     await click(el.querySelector('[data-foto="f2"]'));
     await click(byText(el, 'button', 'Einsortieren (2)'));
     for (let i = 0; i < 3; i++) await flush();
-    await click(el.querySelector('[data-stelle="s1"]'));
+    const f = el.querySelector('.plan-inhalt');
+    f.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 1000 });
+    f.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
+    for (let i = 0; i < 4; i++) await flush();
+    await click(el.querySelector('[data-seite="links"]'));
+    for (let i = 0; i < 3; i++) await flush();
     await click(byText(el, '.picker button', 'Elektro'));
-    await click(byText(el, '.picker button', 'Installation'));
+    await click(byText(el, '.picker button', 'Speichern'));
     for (let i = 0; i < 4; i++) await flush();
     expect(el.querySelectorAll('[data-foto]')).toHaveLength(0);
+    const wand = (await api.list('stellen'))[0];
+    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'links' });
+    expect((await api.list('fotos', { stelle_id: wand.id })).map((x) => x.gewerk_id)).toEqual(['g1', 'g1']);
   });
 
   it('übernimmt beim Öffnen geteilte Dateien', async () => {

@@ -91,3 +91,19 @@ a.btn.primaer { background: var(--accent); color: var(--accent-fg); border-color
 .verlauf q { font-style: italic; }
 .thumbs img { cursor: pointer; }
 .flex1 { flex: 1; }
+/* Räume und Wände */
+.raum-flaeche { position: absolute; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 4px; pointer-events: none; }
+.raum.gedimmt .raum-flaeche { background: #0003; border-color: #0002; }
+.raum-zahl { position: absolute; background: var(--accent); color: var(--accent-fg); font-size: 12px; border-radius: 10px; padding: 1px 7px; pointer-events: none; white-space: nowrap; }
+.raum-zahl:empty { display: none; }
+.raum-fokus { position: absolute; box-shadow: 0 0 0 9999px #0006; border-radius: 4px; pointer-events: none; }
+.plan-rahmen { position: relative; }
+.wand { position: absolute; z-index: 3; min-height: 40px; padding: 0 12px; font-size: 14px; border-radius: 20px; background: var(--card); box-shadow: 0 2px 8px #0004; }
+.w-oben { top: 6px; left: 50%; transform: translateX(-50%); }
+.w-unten { bottom: 6px; left: 50%; transform: translateX(-50%); }
+.w-links { left: 6px; top: 50%; transform: translateY(-50%); }
+.w-rechts { right: 6px; top: 50%; transform: translateY(-50%); }
+.wand .zahl { background: var(--accent); color: var(--accent-fg); border-radius: 10px; padding: 0 6px; font-size: 12px; }
+.boden-decke { margin-top: 8px; } .boden-decke .wand { position: static; box-shadow: none; flex: 1; }
+.zurueck { white-space: nowrap; }
+.hinweis.klein { font-size: 13px; margin: 0 0 6px; }

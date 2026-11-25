@@ -17,15 +17,23 @@ describe('CategoryPicker', () => {
     await flush();
     expect(el.querySelectorAll('button[aria-pressed="true"]')).toHaveLength(0);
   });
-  it('speichert erst, wenn beides gewählt ist – genau einmal', async () => {
+  it('Speichern ohne Auswahl ist möglich', async () => {
     const onComplete = vi.fn();
     const el = mount(html`<${CategoryPicker} gewerke=${gewerke} phasen=${phasen} onComplete=${onComplete} />`);
     await flush();
-    await click(byText(el, 'button', 'Elektro'));
+    await click(byText(el, 'button', 'Speichern'));
+    expect(onComplete).toHaveBeenCalledWith({ gewerk_id: null, phase_id: null, notiz: '' });
+  });
+  it('Auswahl wird erst mit Speichern übernommen; nochmal tippen wählt ab', async () => {
+    const onComplete = vi.fn();
+    const el = mount(html`<${CategoryPicker} gewerke=${gewerke} phasen=${phasen} onComplete=${onComplete} />`);
+    await flush();
+    await click(byText(el, '.gewerke button', 'Elektro'));
+    await click(byText(el, '.phasen button', 'Installation'));
     expect(onComplete).not.toHaveBeenCalled();
-    await click(byText(el, 'button', 'Installation'));
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(onComplete).toHaveBeenCalledWith({ gewerk_id: 'g1', phase_id: 'p2', notiz: '' });
+    await click(byText(el, '.phasen button', 'Installation')); // abgewählt
+    await click(byText(el, 'button', 'Speichern'));
+    expect(onComplete).toHaveBeenCalledWith({ gewerk_id: 'g1', phase_id: null, notiz: '' });
   });
   it('zeigt 5 Gewerke, Rest hinter „mehr…“', async () => {
     const viele = Array.from({ length: 8 }, (_, i) => ({ id: `g${i}`, name: `Gewerk ${i}` }));
@@ -59,8 +67,8 @@ describe('Aufnahme im Grundriss', () => {
   async function setup() {
     const queue = await openQueue(`cap-${Math.random()}`);
     const api = createMemoryApi({ queue, seed: {
-      etagen: [{ id: 'e1', name: 'EG', sortierung: 1 }],
-      stellen: [{ id: 's1', etage_id: 'e1', name: 'Bad – Ostwand', x: 10, y: 10, richtung_grad: 90 }],
+      etagen: [{ id: 'e1', name: 'EG', sortierung: 1, nord_grad: 0 }],
+      raeume: [{ id: 'bad', etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 0, y1: 0, x2: 20, y2: 30 }] }],
       gewerke,
     } });
     api.processImage = async (file) => ({ bild: new Blob(['b']), vorschau: new Blob(['v']), breite: 10, hoehe: 10,
@@ -69,23 +77,26 @@ describe('Aufnahme im Grundriss', () => {
     const add = vi.spyOn(queue, 'add');
     const el = mount(html`<${ApiContext.Provider} value=${api}><${GrundrissView} /><//>`);
     for (let i = 0; i < 5; i++) await flush();
+    const f = el.querySelector('.plan-inhalt');
+    if (f) f.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 1000 });
     const tipp = async (node) => { interaktionen++; await click(node); for (let i = 0; i < 3; i++) await flush(); };
     return { el, add, tipp, api };
   }
 
-  it('Weg 1: Stelle → 📷 → Auslösen → Gewerk → Phase = 5 Interaktionen, danach „noch eins“ mit leerer Auswahl', async () => {
+  it('Raum → Wand → 📷 → Auslösen → Speichern = 5 Interaktionen; Foto hängt an der Wand', async () => {
     const { el, add, tipp, api } = await setup();
-    await tipp(el.querySelector('[data-stelle="s1"]'));
+    interaktionen++; el.querySelector('.plan-inhalt').dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
+    for (let i = 0; i < 4; i++) await flush();
+    await tipp(el.querySelector('[data-seite="oben"]'));
     await tipp(byText(el, 'button', '📷 Foto'));
-    expect(add).toHaveBeenCalledTimes(1); // schon vor der Auswahl gesichert
-    await tipp(byText(el, '.picker button', 'Elektro'));
-    await tipp(byText(el, '.picker button', 'Installation'));
+    expect(add).toHaveBeenCalledTimes(1); // schon vor dem Speichern gesichert
+    expect(el.querySelectorAll('.picker button[aria-pressed="true"]')).toHaveLength(0);
+    await tipp(byText(el, '.picker button', 'Speichern'));
     expect(interaktionen).toBe(5);
-    expect(add).toHaveBeenCalledTimes(1);
     const [item] = await api.queue.pending();
-    const d = item.datensatz;
-    expect(d).toMatchObject({ stelle_id: 's1', gewerk_id: 'g1', tag: '2027-03-17' });
-    expect(d.phase_id).toBeTruthy();
+    const wand = (await api.list('stellen'))[0];
+    expect(wand).toMatchObject({ raum_id: 'bad', seite: 'oben', name: 'Bad – Nordwand' });
+    expect(item.datensatz).toMatchObject({ stelle_id: wand.id, gewerk_id: null, phase_id: null, tag: '2027-03-17' });
     expect(el.textContent).toContain('Gespeichert');
     await tipp(byText(el, 'button', 'noch eins'));
     expect(el.querySelectorAll('.picker button[aria-pressed="true"]')).toHaveLength(0);

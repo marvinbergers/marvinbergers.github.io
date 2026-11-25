@@ -8,6 +8,8 @@ import { pickFile } from './capture.js';
 import { FloorPlan } from './FloorPlan.js';
 import { CategoryPicker } from './CategoryPicker.js';
 import { pickEtage } from '../lib/filter.js';
+import { ensureWand } from '../data/actions.js';
+import { wandTitel } from '../lib/rooms.js';
 import { sortByFrequency, countUsage } from '../lib/frequency.js';
 
 export function Inbox() {
@@ -55,14 +57,15 @@ export function Inbox() {
 
   if (schritt === 'stelle') {
     const etage = pickEtage(d.data.etagen, etageId);
-    return html`<${StelleWaehlen} api=${api} etage=${etage} etagen=${d.data.etagen} onEtage=${setEtageId}
+    return html`<${WandWaehlen} api=${api} etage=${etage} etagen=${d.data.etagen} onEtage=${setEtageId}
       onWahl=${(stelle) => setSchritt({ stelle })} onAbbruch=${() => setSchritt(null)} />`;
   }
   if (schritt?.stelle) {
     return html`<div class="karte"><${CategoryPicker} titel=${`${markiert.size} Fotos → ${schritt.stelle.name}`}
       gewerke=${d.data.gewerke} phasen=${d.data.phasen}
       onComplete=${async ({ gewerk_id, phase_id }) => {
-        await assignFotos(api, [...markiert], { stelle_id: schritt.stelle.id, gewerk_id, phase_id });
+        // Nur Gewähltes überschreiben; nicht Gewähltes bleibt, wie es ist.
+        await assignFotos(api, [...markiert], { stelle_id: schritt.stelle.id, ...(gewerk_id && { gewerk_id }), ...(phase_id && { phase_id }) });
         setMarkiert(new Set()); setSchritt(null); d.reload();
       }} />
       <button onClick=${() => setSchritt(null)}>Abbrechen</button></div>`;
@@ -84,17 +87,20 @@ export function Inbox() {
   </div>`;
 }
 
-function StelleWaehlen({ api, etage, etagen, onEtage, onWahl, onAbbruch }) {
-  const s = useLoad(async () => etage ? Promise.all([api.list('stellen', { etage_id: etage.id }), api.list('raeume', { etage_id: etage.id })]) : [[], []], [etage?.id]);
+function WandWaehlen({ api, etage, etagen, onEtage, onWahl, onAbbruch }) {
+  const [raum, setRaum] = useState(null);
+  const r = useLoad(async () => (etage ? api.list('raeume', { etage_id: etage.id }) : []), [etage?.id]);
   const urls = useUrls(api, [etage?.plan_key]);
   if (!etage) return html`<p>Keine Etage angelegt.</p>`;
-  const [stellen, raeume] = s.data ?? [[], []];
-  const kopf = html`<select aria-label="Etage" value=${etage.id} onChange=${(e) => onEtage(e.target.value)}>
+  const kopf = html`<select aria-label="Etage" value=${etage.id} onChange=${(e) => { setRaum(null); onEtage(e.target.value); }}>
     ${etagen.map((e) => html`<option value=${e.id}>${e.name}</option>`)}</select>`;
   return html`<div>
-    <p><b>Stelle wählen</b> – antippen, oder neue Stelle durch Drücken und Ziehen.</p>
-    <${FloorPlan} etage=${etage} planUrl=${urls[etage.plan_key]} stellen=${stellen} raeume=${raeume} kopf=${kopf}
-      onSelectStelle=${onWahl} onCreateStelle=${async (pos) => onWahl(await api.insert('stellen', { ...pos, etage_id: etage.id }))} />
+    <p><b>${raum ? 'Wand wählen' : 'Raum wählen'}</b></p>
+    <${FloorPlan} etage=${etage} planUrl=${urls[etage.plan_key]} raeume=${r.data ?? []} aktiverRaum=${raum} kopf=${kopf} ohneSchnellfoto=${true}
+      onRoom=${setRaum} onWand=${async (seite) => {
+        const st = await ensureWand(api, etage, raum, seite);
+        onWahl({ ...st, name: wandTitel(raum, seite, etage.nord_grad ?? 0) });
+      }} />
     <button onClick=${onAbbruch}>Abbrechen</button>
   </div>`;
 }

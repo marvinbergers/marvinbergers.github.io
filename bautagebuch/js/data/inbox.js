@@ -1,7 +1,8 @@
 // Eingang: Fotos ohne vollständige Einordnung (Stelle, Gewerk und Phase).
 import { preparePhoto } from '../ui/capture.js';
 
-export const imEingang = (f) => !f.stelle_id || !f.gewerk_id || !f.phase_id;
+// Einsortiert ist ein Foto, sobald es an einer Wand hängt; Gewerk und Phase sind freiwillig.
+export const imEingang = (f) => !f.stelle_id;
 
 async function bekannteHashes(api) {
   // Offline nur gegen die lokale Warteschlange prüfen; der Server verhindert Duplikate zusätzlich.

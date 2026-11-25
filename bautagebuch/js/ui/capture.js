@@ -6,6 +6,8 @@ import { fotoKeys } from '../lib/keys.js';
 import { berlinDate } from '../lib/days.js';
 import { sortByFrequency, countUsage } from '../lib/frequency.js';
 import { CategoryPicker } from './CategoryPicker.js';
+import { ensureWand } from '../data/actions.js';
+import { wandTitel } from '../lib/rooms.js';
 
 const uuid = () => crypto.randomUUID();
 
@@ -62,9 +64,23 @@ export async function setzeKategorie(api, fotoId, felder) {
 export function useCapture(api, { onSaved = () => {} } = {}) {
   const [zustand, setZustand] = useState(null); // {art:'waehlen'|'gespeichert'|'eingang'|'fehler', ...}
 
+  /** Foto an einer Wand: Kamera zuerst (iOS verlangt den direkten Klick), dann Wand-Stelle sicherstellen. */
+  async function anWand(etage, raum, seite, ctx) {
+    const file = await pickFile();
+    if (!file) return;
+    try {
+      const stelle = await ensureWand(api, etage, raum, seite);
+      await mitDatei({ ...stelle, name: wandTitel(raum, seite, etage.nord_grad ?? 0) }, { ...ctx, etage, raum, seite }, file);
+    } catch (e) { setZustand({ art: 'fehler', text: e.message }); }
+  }
+
   async function aufStelle(stelle, ctx) {
     const file = await pickFile();
     if (!file) return;
+    await mitDatei(stelle, ctx, file);
+  }
+
+  async function mitDatei(stelle, ctx, file) {
     const gewerke = sortByFrequency(ctx.gewerke, countUsage(ctx.fotos));
     try {
       // Sofort sichern: Kamerafotos liegen oft nicht in der Galerie. Gewerk/Phase werden danach nachgetragen.
@@ -109,11 +125,13 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
   } else if (zustand?.art === 'gespeichert') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Gespeichert · ${zustand.stelle.name}</p>
       <div class="knopfgitter"><button onClick=${() => setZustand(null)}>Fertig</button>
-      <button class="primaer" onClick=${() => aufStelle(zustand.stelle, { ...zustand.ctx, checkpunkt: null })}>noch eins</button></div></div>`;
+      <button class="primaer" onClick=${() => (zustand.ctx.raum
+        ? anWand(zustand.ctx.etage, zustand.ctx.raum, zustand.ctx.seite, { ...zustand.ctx, checkpunkt: null })
+        : aufStelle(zustand.stelle, { ...zustand.ctx, checkpunkt: null }))}>noch eins</button></div></div>`;
   } else if (zustand?.art === 'eingang') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Im Eingang – später einsortieren.</p></div>`;
   } else if (zustand?.art === 'fehler') {
     overlay = html`<div class="dialog karte" role="alert"><p class="fehler">${zustand.text}</p><button onClick=${() => setZustand(null)}>OK</button></div>`;
   }
-  return { atStelle: aufStelle, quick, overlay };
+  return { atStelle: aufStelle, atWand: anWand, quick, overlay };
 }
