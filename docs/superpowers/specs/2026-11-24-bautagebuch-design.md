@@ -22,7 +22,7 @@ Warum jetzt: Der Bestand muss fotografiert sein, **bevor der Abriss beginnt**. D
 ## 2. Ziele, Nicht-Ziele, Anti-Ziele
 
 **Ziele**
-- Ein Foto in **3–4 Tipps** an einer Stelle im Grundriss ablegen, ein Schnellfoto in **2–3 Tipps**.
+- Ein Foto in **5–6 Tipps** an einer Stelle im Grundriss ablegen, inklusive bewusster Wahl von Gewerk und Phase. Ein Schnellfoto in **2–3 Tipps**.
 - **Einmal anmelden pro Handy**, danach nie wieder.
 - Alle vier sehen alles und dürfen alles eintragen.
 - Ein Archiv, das **ohne die App** lesbar bleibt (Fotodateien plus PDF).
@@ -36,7 +36,7 @@ Warum jetzt: Der Bestand muss fotografiert sein, **bevor der Abriss beginnt**. D
 - Beweissicherung gegenüber Handwerkern im juristischen Sinn.
 
 **Anti-Ziele** (das hieße, die App ist gescheitert, auch wenn sie technisch funktioniert)
-- Die anderen Familienmitglieder schicken Fotos lieber per WhatsApp, weil die App nervt: wiederholte Anmeldung, zu viele Tipps, Pflichtfelder.
+- Die anderen Familienmitglieder schicken Fotos lieber per WhatsApp, weil die App nervt: wiederholte Anmeldung, zu viele Tipps, lange Formulare.
 - Ein Foto ist da, aber niemand weiß mehr, welche Wand es zeigt.
 - Ein falscher Tipp löscht etwas unwiederbringlich.
 - In 10 Jahren ist das Archiv weg, weil ein Anbieter eingestellt wurde.
@@ -44,7 +44,7 @@ Warum jetzt: Der Bestand muss fotografiert sein, **bevor der Abriss beginnt**. D
 
 ## 3. Rahmenbedingungen
 
-- **Geräte:** iPhone und Android müssen beide gehen. Welche Geräte die Familie nutzt, ist nicht geklärt, also gilt die strengere Plattform: iOS.
+- **Geräte:** Der Admin nutzt ein iPhone, die anderen drei Android. Beide Plattformen müssen voll funktionieren; die iOS-Einschränkungen von Web-Apps (Anmeldung, Kamera, kein Teilen-Ziel) betreffen nur ein Gerät, Android ist der Hauptfall.
 - **Kein VPN, keine App-Store-Installation.** Installiert wird über „Zum Startbildschirm hinzufügen“.
 - **Empfang:** Im Keller und auf der Baustelle ist der Empfang schlecht. Erfassen muss auch offline gehen.
 - **Pläne:** Sie liegen als PDF (Genehmigungsplanung) und DXF je Geschoss vor, dazu ein älterer Bestandsplan und ein eigenes 3D-Modell mit Wandgeometrie in Metern. Alles liegt in der privaten Ablage, nicht im Repository.
@@ -110,20 +110,34 @@ Stufe 1 legt die **Gewerke-Liste** schon so an wie in der Excel-Datei (Bereich, 
 1. Stelle antippen (oder neu setzen).
 2. 📷 antippen. Es öffnet sich die **eingebaute Kamera des Handys** (`<input type="file" accept="image/*" capture="environment">`).
 3. Auslösen, auf iOS noch „Foto verwenden“.
-4. Gespeichert. Mit „noch eins“ gleich das nächste Foto an derselben Stelle.
+4. **Gewerk antippen** und **Phase antippen**: zwei Reihen großer Knöpfe, nichts ist vorausgewählt.
+5. Sobald beides gewählt ist, wird gespeichert, ohne extra Speichern-Knopf. Mit „noch eins“ geht es zum nächsten Foto an derselben Stelle, auch dort werden Gewerk und Phase wieder neu gewählt.
+
+```
+┌─ Bad – Ostwand ──────────────┐
+│ [Foto-Vorschau]              │
+│ Gewerk:                      │
+│ [Elektro] [Sanitär] [Heizung]│
+│ [Trockenbau] [Statik] [mehr…]│
+│ Phase:                       │
+│ [Bestand] [Abbruch] [Rohbau] │
+│ [Installation] [Verschlossen]│
+│ [Fertig]                     │
+└──────────────────────────────┘
+```
 
 **Weg 2 – Schnellfoto:** 📷 oben rechts antippen und auslösen. Das Foto landet im **Eingang**.
 
-**Weg 3 – aus der Galerie:** Im Eingang auf „Fotos importieren“ tippen und mehrere Fotos auswählen. Das Aufnahmedatum (EXIF) bleibt erhalten. Auf Android geht es zusätzlich über „Teilen → Bautagebuch“ (Web Share Target). Auf iOS gibt es das nicht.
+**Weg 3 – aus der Galerie:** Im Eingang auf „Fotos importieren“ tippen und mehrere Fotos auswählen. Das Aufnahmedatum (EXIF) bleibt erhalten. Auf Android geht es zusätzlich über „Teilen → Bautagebuch“ (Web Share Target); das ist für drei der vier Nutzer der bequemste Weg und gehört deshalb fest in Stufe 1. Auf iOS gibt es das nicht.
 
 **Regeln dazu:**
-- **Keine Pflichtfelder.** Gewerk und Phase übernimmt die App vom letzten Foto auf diesem Gerät und zeigt sie dezent an. Man kann sie jederzeit ändern.
+- **Gewerk und Phase werden immer bewusst gewählt**, nie vorausgewählt. Damit stimmen die Filter und das Archiv. Beim Schnellfoto entfällt die Wahl zunächst; sie wird beim Sortieren im Eingang nachgeholt. Ein Foto gilt erst als einsortiert, wenn Stelle, Gewerk und Phase gesetzt sind. Die Gewerke-Knöpfe sind nach Häufigkeit sortiert, damit die üblichen oben stehen.
 - Eine kurze Notiz pro Foto ist möglich, aber nicht nötig.
 - Bewusst **keine eigene Kamera im Browser** (getUserMedia): In iOS-Web-Apps wird die Kameraerlaubnis sonst immer wieder abgefragt.
 
 ### 6.5 Eingang
 - Hier liegen alle Fotos, die noch keiner Stelle zugeordnet sind, mit einer Zahl im Menü.
-- **Sortieren:** mehrere Fotos markieren, Stelle im Grundriss antippen, fertig.
+- **Sortieren:** mehrere Fotos markieren, Stelle im Grundriss antippen, dann Gewerk und Phase für die markierten Fotos wählen, fertig.
 - Fotos aus dem Eingang erscheinen trotzdem schon im Tagebuch des Aufnahmetags.
 
 ### 6.6 Tagebuch
