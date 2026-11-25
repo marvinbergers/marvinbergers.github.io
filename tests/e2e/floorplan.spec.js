@@ -13,11 +13,11 @@ describe('Grundriss im Browser (Vorschau-Modus)', () => {
     const rahmen = await page.locator('.plan-rahmen').boundingBox();
     const b = await flaeche.boundingBox();
     await page.mouse.click(b.x + b.width * 0.2, b.y + b.height * 0.25); // Bad
-    await page.locator('[data-seite="oben"]').waitFor();
-    expect(await page.locator('[data-seite="oben"]').textContent()).toContain('Nordwand');
+    await page.locator('[data-wand="wand:a"]').waitFor();
+    expect(await page.locator('[data-wand="wand:a"]').textContent()).toContain('Nordwand');
     const z = await flaeche.boundingBox();
     expect(z.width).toBeGreaterThan(b.width * 1.8); // hineingezoomt
-    const fokus = await page.locator('.raum-fokus').boundingBox();
+    const fokus = await page.locator('.raum-umriss').boundingBox();
     expect(Math.abs(fokus.x + fokus.width / 2 - (rahmen.x + rahmen.width / 2))).toBeLessThan(4); // Raum mittig
     await page.getByRole('button', { name: '‹ Grundriss' }).click();
     await expect.poll(async () => (await flaeche.boundingBox()).width).toBeCloseTo(b.width, 0);

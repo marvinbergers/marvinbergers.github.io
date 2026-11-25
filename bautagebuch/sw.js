@@ -16,6 +16,7 @@ const SHELL = [
   'js/ui/History.js',
   'js/ui/Inbox.js',
   'js/ui/Login.js',
+  'js/ui/RaumEditor.js',
   'js/ui/Setup.js',
   'js/ui/Share.js',
   'js/ui/StellePanel.js',

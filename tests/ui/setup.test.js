@@ -43,37 +43,82 @@ describe('Einrichtung', () => {
     expect((await api.list('etagen'))[0].nord_grad).toBe(135);
   });
 
-  it('Raummodus: zwei Ecken antippen + Name legt einen Raum als Rechteck an', async () => {
+  it('neuer Raum: Ecken antippen, Fertig, Name, Speichern', async () => {
     await setup();
     await click(byText(el, 'button', 'Räume'));
-    tippAuf(300, 200); await settle();           // erste Ecke (unten rechts)
-    tippAuf(100, 50); await settle();            // zweite Ecke (oben links)
+    await click(byText(el, 'button', '+ Neuer Raum'));
+    tippAuf(100, 50); await settle(); tippAuf(300, 50); await settle(); tippAuf(300, 200); await settle();
+    tippAuf(100, 200); await settle();
+    await click(byText(el, 'button', 'Fertig'));
     await type(el.querySelector('input[name=raumname]'), 'Bad');
-    await click(byText(el, 'button', 'Hinzufügen'));
-    const r = await api.list('raeume');
-    expect(r).toHaveLength(1);
-    expect(r[0]).toMatchObject({ etage_id: 'e1', name: 'Bad', flaechen: [{ x1: 10, y1: 10, x2: 30, y2: 40 }] });
+    await click(byText(el, '.raum-editor button', 'Speichern'));
+    const [r] = await api.list('raeume');
+    expect(r.name).toBe('Bad');
+    expect(r.ecken.map((p) => [p.x, p.y])).toEqual([[10, 10], [30, 10], [30, 40], [10, 40]]);
+    expect(new Set(r.ecken.map((p) => p.id)).size).toBe(4);
   });
 
-  it('weiteres Rechteck hängt an den zuletzt angelegten Raum an (L-Form)', async () => {
+  it('Schließen durch Tipp auf den ersten Punkt; „Letzten Punkt zurück“', async () => {
     await setup();
     await click(byText(el, 'button', 'Räume'));
-    tippAuf(0, 0); await settle(); tippAuf(100, 100); await settle();
-    await type(el.querySelector('input[name=raumname]'), 'Wohnen');
-    await click(byText(el, 'button', 'Hinzufügen'));
-    await click(byText(el, 'button', '+ weiteres Rechteck für Wohnen'));
-    tippAuf(0, 100); await settle(); tippAuf(50, 250); await settle();
-    await click(byText(el, 'button', 'Rechteck hinzufügen'));
-    const [r] = await api.list('raeume');
-    expect(r.flaechen).toHaveLength(2);
-    expect(r.flaechen[1]).toEqual({ x1: 0, y1: 20, x2: 5, y2: 50 });
+    await click(byText(el, 'button', '+ Neuer Raum'));
+    tippAuf(100, 50); await settle(); tippAuf(300, 50); await settle(); tippAuf(900, 400); await settle();
+    await click(byText(el, 'button', 'Letzten Punkt zurück'));
+    tippAuf(300, 200); await settle();
+    tippAuf(102, 51); await settle(); // nahe am ersten Punkt → schließt
+    expect(el.querySelector('input[name=raumname]')).not.toBeNull();
+    await type(el.querySelector('input[name=raumname]'), 'Dreieck');
+    await click(byText(el, '.raum-editor button', 'Speichern'));
+    expect((await api.list('raeume'))[0].ecken).toHaveLength(3);
   });
 
-  it('alte Punkt-Räume werden als „neu aufziehen“ markiert', async () => {
+  it('Einrasten an der Ecke eines Nachbarraums', async () => {
     await setup({ etagen: [{ id: 'e1', name: 'EG', sortierung: 1, plan_key: 'plaene/e1.png', plan_breite: 1000, plan_hoehe: 500 }],
-      raeume: [{ id: 'alt', etage_id: 'e1', name: 'Küche', x: 50, y: 50 }] });
+      raeume: [{ id: 'n', etage_id: 'e1', name: 'Nachbar', ecken: [{ id: 'a', x: 50, y: 50 }, { id: 'b', x: 60, y: 50 }, { id: 'c', x: 60, y: 60 }] }] });
     await click(byText(el, 'button', 'Räume'));
-    expect(el.textContent).toContain('Küche – neu aufziehen');
+    await click(byText(el, 'button', '+ Neuer Raum'));
+    tippAuf(505, 252); await settle(); // 50,5 % / 50,4 % → rastet auf 50/50 ein
+    tippAuf(700, 250); await settle(); tippAuf(700, 400); await settle();
+    await click(byText(el, 'button', 'Fertig'));
+    await type(el.querySelector('input[name=raumname]'), 'Neu');
+    await click(byText(el, '.raum-editor button', 'Speichern'));
+    const r = (await api.list('raeume')).find((x) => x.name === 'Neu');
+    expect(r.ecken.some((p) => p.x === 50 && p.y === 50)).toBe(true);
+  });
+
+  it('bearbeiten: Ecke einfügen, Ecke löschen, Ecke ziehen – erst Speichern übernimmt', async () => {
+    const raum = { id: 'r', etage_id: 'e1', name: 'Bad', ecken: [{ id: 'a', x: 10, y: 10 }, { id: 'b', x: 30, y: 10 }, { id: 'c', x: 30, y: 40 }, { id: 'd', x: 10, y: 40 }] };
+    await setup({ etagen: [{ id: 'e1', name: 'EG', sortierung: 1, plan_key: 'plaene/e1.png', plan_breite: 1000, plan_hoehe: 500 }], raeume: [raum] });
+    await click(byText(el, 'button', 'Räume'));
+    await click(el.querySelector('[data-bearbeiten="r"]'));
+    await click(el.querySelector('[data-plus="a"]'));            // neue Ecke zwischen a und b
+    expect(el.querySelectorAll('.ecke')).toHaveLength(5);
+    await click(el.querySelector('.ecke[data-ecke="d"]'));
+    await click(byText(el, 'button', 'Punkt löschen'));
+    expect(el.querySelectorAll('.ecke')).toHaveLength(4);
+    // Ecke c ziehen
+    const ecke = el.querySelector('.ecke[data-ecke="c"]');
+    ebene().getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500 });
+    for (const [t, x, y] of [['pointerdown', 300, 200], ['pointermove', 350, 220], ['pointerup', 350, 220]]) {
+      const e = new MouseEvent(t, { clientX: x, clientY: y, bubbles: true }); Object.defineProperty(e, 'pointerId', { value: 1 });
+      (t === 'pointerdown' ? ecke : ebene()).dispatchEvent(e);
+    }
+    await settle();
+    expect((await api.list('raeume'))[0].ecken).toHaveLength(4); // noch nicht gespeichert
+    await click(byText(el, '.raum-editor button', 'Speichern'));
+    const [r] = await api.list('raeume');
+    expect(r.ecken.map((p) => p.id)).toHaveLength(4);
+    expect(r.ecken.find((p) => p.id === 'c')).toMatchObject({ x: 35, y: 44 });
+    expect(r.ecken.find((p) => p.id === 'd')).toBeUndefined();
+  });
+
+  it('„bitte prüfen“ und alte Räume ohne Ecken werden markiert', async () => {
+    await setup({ etagen: [{ id: 'e1', name: 'EG', sortierung: 1, plan_key: 'plaene/e1.png', plan_breite: 1000, plan_hoehe: 500 }],
+      raeume: [{ id: 'alt', etage_id: 'e1', name: 'Küche', x: 50, y: 50 },
+               { id: 'p', etage_id: 'e1', name: 'Wohnen', pruefen: true, ecken: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 1, y: 0 }, { id: 'c', x: 1, y: 1 }] }] });
+    await click(byText(el, 'button', 'Räume'));
+    expect(el.textContent).toContain('Küche – neu zeichnen');
+    expect(el.textContent).toContain('Wohnen – bitte prüfen');
   });
 
   it('Bestandsplan: Passpunkte erst nach 2 + 2 Punkten speichern', async () => {

@@ -14,7 +14,7 @@ describe('Gesamtablauf im Browser (Vorschau-Modus, echte Bildverarbeitung)', () 
     const flaeche = page.locator('.plan-inhalt'); await flaeche.waitFor();
     const b = await flaeche.boundingBox();
     await page.mouse.click(b.x + b.width * 0.2, b.y + b.height * 0.25); // Bad
-    await page.locator('[data-seite="oben"]').click(); // Nordwand
+    await page.locator('[data-wand="wand:a"]').click(); // Nordwand
     await page.locator('.stelle-panel').waitFor();
 
     const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: '📷 Foto' }).click()]);

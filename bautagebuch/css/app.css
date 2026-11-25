@@ -116,3 +116,14 @@ a.btn.primaer { background: var(--accent); color: var(--accent-fg); border-color
 .raum-dunkel { fill: #0007; }
 .raum-umriss { fill: none; stroke: var(--accent); stroke-width: 3; }
 .plan-inhalt .wand { white-space: nowrap; }
+.raum-editor .setup-plan { touch-action: none; }
+.raum-svg .andere { fill: #0001; stroke: #0004; stroke-width: 1.5; }
+.raum-svg .entwurf { fill: color-mix(in srgb, var(--accent) 15%, transparent); stroke: var(--accent); stroke-width: 2.5; }
+.raum-svg polyline.entwurf { fill: none; }
+.ecke, .plus { position: absolute; transform: translate(-50%, -50%); min-height: 0; padding: 0; border-radius: 50%; z-index: 2; }
+.ecke { width: 22px; height: 22px; background: #fff; border: 3px solid var(--accent); touch-action: none; }
+.ecke.erste { background: var(--accent); }
+.ecke.gewaehlt { background: var(--warn); border-color: var(--warn); }
+.plus { width: 22px; height: 22px; font-size: 16px; line-height: 1; background: var(--accent); color: var(--accent-fg); border: 0; opacity: .85; }
+.liste li > span:last-child { display: flex; gap: 6px; }
+.liste li button[data-bearbeiten] { width: auto; padding: 0 10px; }
