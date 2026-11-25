@@ -25,16 +25,29 @@ export function Inbox() {
       etagen: sortiert(etagen), gewerke: sortByFrequency(sortiert(gewerke), countUsage(fotos)), phasen: sortiert(phasen), wartend };
   });
 
+  const melde = (r) => setMeldung([r.neu && `${r.neu} neu`, r.doppelt && `${r.doppelt} schon vorhanden`, r.fehler && `${r.fehler} nicht lesbar`,
+    r.nichtGespeichert && `${r.nichtGespeichert} nicht gespeichert`].filter(Boolean).join(', ') + (r.meldungen.length ? ` – ${r.meldungen.join('; ')}` : ''));
   const importieren = async (files) => {
     if (!files.length) return;
-    const r = await importFiles(api, files);
-    setMeldung([r.neu && `${r.neu} neu`, r.doppelt && `${r.doppelt} schon vorhanden`, r.fehler && `${r.fehler} nicht lesbar`].filter(Boolean).join(', ')
-      + (r.meldungen.length ? ` – ${r.meldungen.join('; ')}` : ''));
+    try { melde(await importFiles(api, files)); } catch (e) { setMeldung(`Fehler beim Import: ${e.message}`); }
     d.reload();
   };
 
-  // Über „Teilen“ (Android) angekommene Fotos übernehmen.
-  useEffect(() => { api.queue.takeShared?.().then((files) => files?.length && importieren(files)); }, []);
+  // Über „Teilen“ (Android) angekommene Fotos übernehmen – erst nach dem sicheren Einreihen löschen.
+  useEffect(() => {
+    (async () => {
+      const geteilt = (await api.queue.peekShared?.()) ?? [];
+      if (!geteilt.length) return;
+      const summe = { neu: 0, doppelt: 0, fehler: 0, nichtGespeichert: 0, meldungen: [] };
+      for (const { key, file } of geteilt) {
+        const r = await importFiles(api, [file]).catch((e) => ({ neu: 0, doppelt: 0, fehler: 0, nichtGespeichert: 1, meldungen: [`${file.name}: ${e.message}`] }));
+        for (const k of ['neu', 'doppelt', 'fehler', 'nichtGespeichert']) summe[k] += r[k];
+        summe.meldungen.push(...r.meldungen);
+        if (!r.nichtGespeichert) await api.queue.removeShared(key);
+      }
+      melde(summe); d.reload();
+    })();
+  }, []);
 
   const fotos = d.data?.fotos ?? [];
   const urls = useUrls(api, fotos.map((f) => f.key_vorschau));

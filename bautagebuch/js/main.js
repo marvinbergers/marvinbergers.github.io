@@ -64,6 +64,7 @@ async function start(root) {
   }
   const { getClient, requestCode, verifyCode, onAuthChange } = await import('./data/supabase.js');
   const { createRemoteApi } = await import('./data/remote.js');
+  const { withOfflineCache } = await import('./data/offline.js');
   const { AuthGate } = await import('./ui/Login.js');
   const client = await getClient();
   const auth = {
@@ -74,9 +75,12 @@ async function start(root) {
   function App() {
     const [api, setApi] = useState(null);
     const [wartend, setWartend] = useState(0);
-    const signedIn = async () => {
-      const { data } = await client.auth.getUser();
-      setApi(createRemoteApi({ client, queue, me: { id: data.user.id, email: data.user.email }, onQueueChange: setWartend }));
+    // Nutzer aus der Sitzung nehmen – keine Netzabfrage beim Start (offline im Keller).
+    const signedIn = async (session) => {
+      const user = session?.user;
+      if (!user) return;
+      const remote = createRemoteApi({ client, queue, me: { id: user.id, email: user.email }, onQueueChange: setWartend });
+      setApi(await withOfflineCache(remote));
     };
     return html`<${AuthGate} auth=${auth} onSignedIn=${signedIn}>
       ${api ? html`<${ApiContext.Provider} value=${api}><${Shell} warteschlange=${wartend} /><//>` : html`<p class="hinweis">Lädt …</p>`}

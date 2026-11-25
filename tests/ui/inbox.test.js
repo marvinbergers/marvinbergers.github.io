@@ -31,7 +31,7 @@ beforeEach(() => { document.body.innerHTML = ''; });
 describe('importFiles', () => {
   it('erkennt Duplikate – im selben Import und gegenüber Vorhandenem', async () => {
     const api = await apiMit([{ id: 'alt', sha256: 'h-x', tag: '2027-03-01' }]);
-    expect(await importFiles(api, [f('a'), f('a'), f('x')])).toEqual({ neu: 1, doppelt: 2, fehler: 0, meldungen: [] });
+    expect(await importFiles(api, [f('a'), f('a'), f('x')])).toEqual({ neu: 1, doppelt: 2, fehler: 0, nichtGespeichert: 0, meldungen: [] });
     expect(await api.queue.count()).toBe(1);
   });
   it('unlesbare Datei: Meldung, Rest wird importiert', async () => {

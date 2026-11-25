@@ -23,3 +23,17 @@ describe('manifest', () => {
     expect(st.params.files[0].accept).toContain('image/*');
   });
 });
+
+import { readdirSync } from 'node:fs';
+describe('Service Worker', () => {
+  it('speichert alle App-Module für den Offline-Start vor', () => {
+    const sw = readFileSync('bautagebuch/sw.js', 'utf8');
+    const module = ['ui', 'data', 'lib', 'vendor'].flatMap((d) => readdirSync(`bautagebuch/js/${d}`).filter((f) => f.endsWith('.js')).map((f) => `js/${d}/${f}`));
+    for (const m of module) expect(sw, m).toContain(`'${m}'`);
+  });
+  it('fällt nur bei Seitenaufrufen auf index.html zurück und hat ein Netz-Zeitlimit', () => {
+    const sw = readFileSync('bautagebuch/sw.js', 'utf8');
+    expect(sw).toMatch(/mode === 'navigate'/);
+    expect(sw).toMatch(/TIMEOUT_MS/);
+  });
+});

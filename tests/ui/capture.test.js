@@ -70,18 +70,20 @@ describe('Aufnahme im Grundriss', () => {
     const el = mount(html`<${ApiContext.Provider} value=${api}><${GrundrissView} /><//>`);
     for (let i = 0; i < 5; i++) await flush();
     const tipp = async (node) => { interaktionen++; await click(node); for (let i = 0; i < 3; i++) await flush(); };
-    return { el, add, tipp };
+    return { el, add, tipp, api };
   }
 
   it('Weg 1: Stelle → 📷 → Auslösen → Gewerk → Phase = 5 Interaktionen, danach „noch eins“ mit leerer Auswahl', async () => {
-    const { el, add, tipp } = await setup();
+    const { el, add, tipp, api } = await setup();
     await tipp(el.querySelector('[data-stelle="s1"]'));
     await tipp(byText(el, 'button', '📷 Foto'));
+    expect(add).toHaveBeenCalledTimes(1); // schon vor der Auswahl gesichert
     await tipp(byText(el, '.picker button', 'Elektro'));
     await tipp(byText(el, '.picker button', 'Installation'));
     expect(interaktionen).toBe(5);
     expect(add).toHaveBeenCalledTimes(1);
-    const d = add.mock.calls[0][0].datensatz;
+    const [item] = await api.queue.pending();
+    const d = item.datensatz;
     expect(d).toMatchObject({ stelle_id: 's1', gewerk_id: 'g1', tag: '2027-03-17' });
     expect(d.phase_id).toBeTruthy();
     expect(el.textContent).toContain('Gespeichert');

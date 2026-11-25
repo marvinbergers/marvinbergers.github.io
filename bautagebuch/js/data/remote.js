@@ -6,15 +6,22 @@ const TAG_MS = 86_400_000;
 // Tabellen ohne Papierkorb haben keine *_aktiv-Sicht.
 const OHNE_PAPIERKORB = new Set(['einstellungen', 'aenderungen', 'erlaubte_nutzer']);
 const pruefe = ({ data, error }) => { if (error) throw error; return data; };
+const SEITE = 1000;
 
 export function createRemoteApi({ client, queue, me, onQueueChange = () => {} }) {
   const sign = makeSign(client);
   const api = {
     me, queue,
     async list(table, filter = {}) {
-      let q = client.from(OHNE_PAPIERKORB.has(table) ? table : `${table}_aktiv`).select('*');
-      for (const [k, v] of Object.entries(filter)) q = v === null ? q.is(k, null) : q.eq(k, v);
-      return pruefe(await q);
+      // Supabase liefert höchstens 1000 Zeilen je Abfrage – daher seitenweise laden.
+      const rows = [];
+      for (let von = 0; ; von += SEITE) {
+        let q = client.from(OHNE_PAPIERKORB.has(table) ? table : `${table}_aktiv`).select('*');
+        for (const [k, v] of Object.entries(filter)) q = v === null ? q.is(k, null) : q.eq(k, v);
+        const seite = pruefe(await q.range(von, von + SEITE - 1));
+        rows.push(...seite);
+        if (seite.length < SEITE) return rows;
+      }
     },
     async listDeleted(table) {
       const grenze = new Date(Date.now() - 90 * TAG_MS).toISOString();
@@ -33,6 +40,6 @@ export function createRemoteApi({ client, queue, me, onQueueChange = () => {} })
     syncNow: null,
   };
   client.rpc('verknuepfe_mich').then(() => {}, () => {}); // eigene Person mit dem Login verknüpfen
-  api.syncNow = startSync({ queue, sign, upload, insertFoto: (d) => api.insert('fotos', d) }, { onChange: onQueueChange });
+  api.syncNow = startSync({ queue, sign, upload, insertFoto: (d) => api.insert('fotos', d), updateFoto: (id, p) => api.update('fotos', id, p) }, { onChange: onQueueChange });
   return api;
 }

@@ -40,8 +40,12 @@ export function GrundrissView() {
   reloadRef.current = daten.reload;
 
   if (basis.loading) return html`<p class="hinweis">Lädt …</p>`;
-  if (!etage) return html`<div class="karte"><h2>Willkommen</h2><p>Es ist noch keine Etage angelegt.</p>
-    <a class="btn" href="#/einrichtung">Zur Einrichtung</a></div>`;
+  if (!etage) return html`<div>
+    <div class="grundriss-kopf"><span class="flex1"></span><button class="schnellfoto primaer" aria-label="Schnellfoto" onClick=${() => capture.quick()}>📷</button></div>
+    ${basis.error
+      ? html`<div class="karte"><p>Keine Verbindung und noch keine gespeicherten Daten auf diesem Gerät.</p><p class="hinweis">Schnellfotos gehen trotzdem – sie werden hochgeladen, sobald wieder Netz da ist.</p></div>`
+      : html`<div class="karte"><h2>Willkommen</h2><p>Es ist noch keine Etage angelegt.</p><a class="btn" href="#/einrichtung">Zur Einrichtung</a></div>`}
+    ${capture.overlay}</div>`;
 
   const { stellen = [], raeume = [], fotos = [] } = daten.data ?? {};
   const sichtbar = filterStellen(stellen, fotos, filter);

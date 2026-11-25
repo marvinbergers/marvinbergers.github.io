@@ -1,7 +1,9 @@
 // Arbeitet die Warteschlange ab: Bild hochladen, Vorschau hochladen, Datensatz anlegen, Eintrag entfernen.
 // Scheitert ein Schritt, bleibt der Eintrag für den nächsten Versuch liegen.
 
-export async function syncOnce({ queue, sign, upload, insertFoto }) {
+const KATEGORIE = ['stelle_id', 'gewerk_id', 'phase_id', 'notiz', 'checkpunkt'];
+
+export async function syncOnce({ queue, sign, upload, insertFoto, updateFoto = async () => {} }) {
   let erledigt = 0; let fehler = 0;
   for (const item of await queue.pending()) {
     try {
@@ -16,6 +18,11 @@ export async function syncOnce({ queue, sign, upload, insertFoto }) {
         await insertFoto(d);
       } catch (e) {
         if (e?.code !== '23505') throw e; // 23505 = Foto existiert schon (Duplikat) → gilt als erledigt
+      }
+      // Wurde während des Uploads Gewerk/Phase gewählt, die Änderung nachtragen.
+      const jetzt = await queue.get?.(item.fotoId);
+      if (jetzt && (jetzt.rev ?? 0) !== (item.rev ?? 0)) {
+        await updateFoto(d.id, Object.fromEntries(KATEGORIE.map((k) => [k, jetzt.datensatz[k] ?? null])));
       }
       await queue.remove(item.fotoId);
       erledigt++;

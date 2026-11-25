@@ -8,7 +8,7 @@ export async function getClient() {
   if (client) return client;
   const { createClient } = await import('../vendor/supabase.js');
   client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: 'bautagebuch-auth', detectSessionInUrl: false },
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: STORAGE_KEY, detectSessionInUrl: false },
   });
   return client;
 }
@@ -24,7 +24,23 @@ export async function verifyCode(c, email, code) {
   if (error) throw error;
 }
 
+const STORAGE_KEY = 'bautagebuch-auth';
+
+/** Gespeicherte Sitzung direkt aus dem Gerät (für den Start ohne Netz). */
+export function storedSession() {
+  try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'); return s?.user ? s : null; } catch { return null; }
+}
+
 export function onAuthChange(c, cb) {
-  c.auth.getSession().then(({ data }) => cb(data.session ? 'SIGNED_IN' : 'SIGNED_OUT', data.session));
-  c.auth.onAuthStateChange((event, session) => cb(session ? 'SIGNED_IN' : 'SIGNED_OUT', session));
+  c.auth.getSession().then(({ data }) => {
+    if (data?.session) return cb('SIGNED_IN', data.session);
+    // Ohne Netz kann ein abgelaufenes Token nicht erneuert werden; die gespeicherte Sitzung bleibt aber gültig
+    // und wird erneuert, sobald wieder Netz da ist.
+    const s = storedSession();
+    cb(s ? 'SIGNED_IN' : 'SIGNED_OUT', s);
+  }, () => { const s = storedSession(); cb(s ? 'SIGNED_IN' : 'SIGNED_OUT', s); });
+  c.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') cb('SIGNED_OUT', null);
+    else if (session) cb('SIGNED_IN', session);
+  });
 }

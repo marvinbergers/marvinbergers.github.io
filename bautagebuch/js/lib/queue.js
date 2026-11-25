@@ -17,7 +17,7 @@ export async function openQueue(name = 'bautagebuch') {
   return {
     async add(item) {
       const tx = db.transaction('warteschlange', 'readwrite');
-      tx.objectStore('warteschlange').put({ ...item, eingereiht: Date.now() });
+      tx.objectStore('warteschlange').put({ ...item, rev: 0, eingereiht: Date.now() });
       await done(tx);
       dispatchEvent?.(new Event('warteschlange'));
     },
@@ -31,6 +31,28 @@ export async function openQueue(name = 'bautagebuch') {
       await done(tx);
     },
     count() { return req(store('warteschlange').count()); },
+    get(fotoId) { return req(store('warteschlange').get(fotoId)); },
+    /** Felder eines noch wartenden Fotos ändern. false, wenn es schon hochgeladen ist. */
+    async patch(fotoId, felder) {
+      const tx = db.transaction('warteschlange', 'readwrite');
+      const s = tx.objectStore('warteschlange');
+      const item = await req(s.get(fotoId));
+      if (item) s.put({ ...item, rev: (item.rev ?? 0) + 1, datensatz: { ...item.datensatz, ...felder } });
+      await done(tx);
+      return !!item;
+    },
+    sharedCount() { return req(store('geteilt').count()); },
+    /** Geteilte Dateien lesen, ohne sie zu entfernen (erst nach dem Einreihen löschen). */
+    async peekShared() {
+      const s = store('geteilt');
+      const [keys, vals] = await Promise.all([req(s.getAllKeys()), req(s.getAll())]);
+      return keys.map((key, i) => ({ key, file: new File([vals[i].blob], vals[i].name, { type: vals[i].type, lastModified: vals[i].lastModified }) }));
+    },
+    async removeShared(key) {
+      const tx = db.transaction('geteilt', 'readwrite');
+      tx.objectStore('geteilt').delete(key);
+      await done(tx);
+    },
     async addShared(files) {
       const tx = db.transaction('geteilt', 'readwrite');
       // Name und Datum explizit sichern: nicht jeder Browser klont File-Objekte vollständig.

@@ -55,6 +55,7 @@ export function createMemoryApi({ queue, me = { id: 'u1', email: 'demo@example.o
         sign: async (ops) => ops.map((o) => o.key),
         upload: async (key, blob) => { blobs.set(key, blob); },
         insertFoto: (d) => api.insert('fotos', d),
+        updateFoto: (id, p) => api.update('fotos', id, p),
       });
     },
   };

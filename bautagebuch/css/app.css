@@ -90,3 +90,4 @@ a.btn.primaer { background: var(--accent); color: var(--accent-fg); border-color
 .foto-ansicht .gross-bild { width: 100%; border-radius: 10px; margin: 8px 0; }
 .verlauf q { font-style: italic; }
 .thumbs img { cursor: pointer; }
+.flex1 { flex: 1; }

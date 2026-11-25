@@ -51,6 +51,13 @@ export async function enqueuePhoto(api, file, felder) {
   return item.datensatz;
 }
 
+/** Gewerk/Phase nachtragen: im Gerät, solange das Foto wartet, sonst in der Datenbank. */
+export async function setzeKategorie(api, fotoId, felder) {
+  const wartet = await api.queue.patch?.(fotoId, felder);
+  if (!wartet) await api.update('fotos', fotoId, felder);
+  api.syncNow?.();
+}
+
 /** Aufnahme-Ablauf für den Grundriss: liefert Auslöser und das Overlay. */
 export function useCapture(api, { onSaved = () => {} } = {}) {
   const [zustand, setZustand] = useState(null); // {art:'waehlen'|'gespeichert'|'eingang'|'fehler', ...}
@@ -59,16 +66,28 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
     const file = await pickFile();
     if (!file) return;
     const gewerke = sortByFrequency(ctx.gewerke, countUsage(ctx.fotos));
-    setZustand({ art: 'waehlen', stelle, file, ctx: { ...ctx, gewerke }, n: Date.now() });
+    try {
+      // Sofort sichern: Kamerafotos liegen oft nicht in der Galerie. Gewerk/Phase werden danach nachgetragen.
+      const d = await enqueuePhoto(api, file, { stelle_id: stelle.id, checkpunkt: ctx.checkpunkt ?? null });
+      setZustand({ art: 'waehlen', stelle, fotoId: d.id, ctx: { ...ctx, gewerke }, n: Date.now() });
+    } catch (e) { setZustand({ art: 'fehler', text: e.message }); }
   }
 
   async function gewaehlt(auswahl) {
-    const { stelle, file, ctx } = zustand;
+    const { stelle, fotoId, ctx } = zustand;
     try {
-      await enqueuePhoto(api, file, { stelle_id: stelle.id, checkpunkt: ctx.checkpunkt ?? null, ...auswahl });
+      await setzeKategorie(api, fotoId, auswahl);
       setZustand({ art: 'gespeichert', stelle, ctx });
       onSaved();
-    } catch (e) { setZustand({ art: 'fehler', text: e.message }); }
+    } catch (e) { setZustand({ art: 'fehler', text: `Gewerk/Phase nicht gespeichert: ${e.message}. Das Foto liegt im Eingang.` }); }
+  }
+
+  async function verwerfen() {
+    const { fotoId } = zustand;
+    setZustand(null);
+    if (await api.queue.get?.(fotoId)) await api.queue.remove(fotoId);
+    else await api.softDelete('fotos', fotoId).catch(() => {});
+    onSaved();
   }
 
   async function quick() {
@@ -86,7 +105,7 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
   if (zustand?.art === 'waehlen') {
     overlay = html`<div class="dialog karte"><${CategoryPicker} key=${zustand.n} titel=${zustand.ctx.checkpunkt ? `${zustand.stelle.name} · ${zustand.ctx.checkpunkt}` : zustand.stelle.name}
       gewerke=${zustand.ctx.gewerke} phasen=${zustand.ctx.phasen} onComplete=${gewaehlt} />
-      <button onClick=${() => setZustand(null)}>Verwerfen</button></div>`;
+      <button onClick=${verwerfen}>Verwerfen</button></div>`;
   } else if (zustand?.art === 'gespeichert') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Gespeichert · ${zustand.stelle.name}</p>
       <div class="knopfgitter"><button onClick=${() => setZustand(null)}>Fertig</button>

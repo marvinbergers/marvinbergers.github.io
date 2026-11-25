@@ -51,9 +51,9 @@ export function AuthGate({ auth, onSignedIn = () => {}, children }) {
   const [status, setStatus] = useState('laden');
   const drin = useRef(false);
   useEffect(() => {
-    auth.onAuthChange((event) => {
+    auth.onAuthChange((event, session) => {
       const jetztDrin = event === 'SIGNED_IN';
-      if (jetztDrin && !drin.current) onSignedIn();
+      if (jetztDrin && !drin.current) onSignedIn(session);
       drin.current = jetztDrin;
       setStatus(jetztDrin ? 'drin' : 'draussen');
     });
