@@ -77,3 +77,13 @@ button.link { border: 0; background: none; color: var(--accent); min-height: 40p
 .tabelle { width: 100%; border-collapse: collapse; } .tabelle td { padding: 4px 0; border-bottom: 1px solid var(--line); } .tabelle td:last-child { text-align: right; }
 a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 a.btn.primaer { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.setup label { display: block; margin: 8px 0; }
+.setup-plan { position: relative; width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.setup-plan img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.raum-marke, .pp { position: absolute; transform: translate(-50%, -50%); background: var(--accent); color: var(--accent-fg); border-radius: 8px; padding: 1px 6px; font-size: 12px; pointer-events: none; }
+.nordpfeil { display: inline-block; margin-left: 6px; }
+.liste { list-style: none; padding: 0; margin: 4px 0; } .liste li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; }
+.liste button { min-height: 36px; width: 40px; padding: 0; }
+.zeile.neu { flex-wrap: wrap; } .zeile.neu input { flex: 1 1 140px; }
+.formular input { margin-bottom: 6px; } .check { display: flex; gap: 8px; align-items: center; } .check input { width: auto; min-height: 0; }
+.einstellungen { width: 48px; justify-content: center; padding: 0; }

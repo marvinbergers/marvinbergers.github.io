@@ -10,3 +10,9 @@ export function fotoKeys(fotoId, datum) {
   const m = String(datum.getUTCMonth() + 1).padStart(2, '0');
   return { bild: `fotos/${y}/${m}/${fotoId}.jpg`, vorschau: `fotos/${y}/${m}/${fotoId}_v.jpg` };
 }
+
+/** Dateiname → schlüsseltauglich (keine Leerzeichen, keine Pfadteile). */
+export function safeName(name) {
+  const basis = `${name}`.split(/[\\/]/).pop();
+  return basis.replace(/\s+/g, '-').replace(/[^\w\-.äöüÄÖÜß]/g, '').replace(/-+/g, '-').replace(/-\./g, '.').replace(/^[-.]+/, '');
+}

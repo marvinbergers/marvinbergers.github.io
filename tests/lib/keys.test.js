@@ -16,3 +16,12 @@ describe('Speicherschlüssel', () => {
     expect(isValidKey('')).toBe(false);
   });
 });
+
+import { safeName } from '../../bautagebuch/js/lib/keys.js';
+describe('safeName', () => {
+  it('macht Dateinamen schlüsseltauglich', () => {
+    expect(safeName('Elektro Plan EG (final).pdf')).toBe('Elektro-Plan-EG-final.pdf');
+    expect(safeName('Grundriss Küche.png')).toBe('Grundriss-Küche.png');
+    expect(safeName('../../x')).toBe('x');
+  });
+});

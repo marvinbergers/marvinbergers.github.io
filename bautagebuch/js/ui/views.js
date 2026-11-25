@@ -7,3 +7,5 @@ import { Inbox } from './Inbox.js';
 registerView('eingang', Inbox);
 import { TagebuchView } from './Diary.js';
 registerView('tagebuch', TagebuchView);
+import { Setup } from './Setup.js';
+registerView('einrichtung', Setup);

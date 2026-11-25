@@ -36,6 +36,10 @@ export function createMemoryApi({ queue, me = { id: 'u1', email: 'demo@example.o
       log(table, r, 'update', vorher);
       return { ...r };
     },
+    async upsert(table, row, key) {
+      const r = t(table).find((x) => x[key] === row[key]);
+      return r ? api.update(table, r.id, row) : api.insert(table, row);
+    },
     softDelete(table, id) { return api.update(table, id, { geloescht_am: now().toISOString() }); },
     restore(table, id) { return api.update(table, id, { geloescht_am: null }); },
     async history(id) { return history.filter((h) => h.datensatz_id === id).reverse(); },

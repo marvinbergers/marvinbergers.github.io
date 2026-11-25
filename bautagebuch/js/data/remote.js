@@ -3,6 +3,8 @@ import { makeSign, upload, signedUrl } from './storage.js';
 import { startSync } from './sync.js';
 
 const TAG_MS = 86_400_000;
+// Tabellen ohne Papierkorb haben keine *_aktiv-Sicht.
+const OHNE_PAPIERKORB = new Set(['einstellungen', 'aenderungen', 'erlaubte_nutzer']);
 const pruefe = ({ data, error }) => { if (error) throw error; return data; };
 
 export function createRemoteApi({ client, queue, me, onQueueChange = () => {} }) {
@@ -10,7 +12,7 @@ export function createRemoteApi({ client, queue, me, onQueueChange = () => {} })
   const api = {
     me, queue,
     async list(table, filter = {}) {
-      let q = client.from(`${table}_aktiv`).select('*');
+      let q = client.from(OHNE_PAPIERKORB.has(table) ? table : `${table}_aktiv`).select('*');
       for (const [k, v] of Object.entries(filter)) q = v === null ? q.is(k, null) : q.eq(k, v);
       return pruefe(await q);
     },
@@ -20,6 +22,7 @@ export function createRemoteApi({ client, queue, me, onQueueChange = () => {} })
     },
     async insert(table, row) { return pruefe(await client.from(table).insert(row).select().single()); },
     async update(table, id, patch) { return pruefe(await client.from(table).update(patch).eq('id', id).select().single()); },
+    async upsert(table, row, key) { return pruefe(await client.from(table).upsert(row, { onConflict: key }).select().single()); },
     async softDelete(table, id) { await api.update(table, id, { geloescht_am: new Date().toISOString() }); },
     async restore(table, id) { await api.update(table, id, { geloescht_am: null }); },
     async history(id) {

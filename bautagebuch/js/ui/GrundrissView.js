@@ -49,7 +49,8 @@ export function GrundrissView() {
   const kopf = html`
     <select aria-label="Etage" value=${etage.id} onChange=${(e) => wechsel(e.target.value)}>
       ${basis.data.etagen.map((e) => html`<option value=${e.id}>${e.name}</option>`)}
-    </select>`;
+    </select>
+    <a class="btn einstellungen" href="#/einrichtung" aria-label="Einrichtung">⚙︎</a>`;
 
   return html`<div>
     <${FloorPlan} etage=${etage} planUrl=${urls[etage.plan_key]} bestandUrl=${urls[etage.bestand_key]}
