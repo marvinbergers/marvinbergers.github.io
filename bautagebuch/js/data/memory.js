@@ -1,5 +1,6 @@
 // Datenschicht im Speicher: für die Vorschau ohne Backend und für UI-Tests.
 import { syncOnce } from './sync.js';
+import { ensureWand } from './actions.js';
 
 const PHASEN = ['Bestand vor Umbau', 'Abbruch', 'Rohbau', 'Installation', 'Verschlossen', 'Fertig'];
 const uuid = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
@@ -56,6 +57,7 @@ export function createMemoryApi({ queue, me = { id: 'u1', email: 'demo@example.o
         upload: async (key, blob) => { blobs.set(key, blob); },
         insertFoto: (d) => api.insert('fotos', d),
         updateFoto: (id, p) => api.update('fotos', id, p),
+        ensureWand: (w) => ensureWand(api, { id: w.etage_id, nord_grad: w.nord_grad }, { id: w.raum_id, name: w.raum_name }, w.seite),
       });
     },
   };

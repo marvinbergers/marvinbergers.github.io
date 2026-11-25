@@ -3,7 +3,7 @@
 
 const KATEGORIE = ['stelle_id', 'gewerk_id', 'phase_id', 'notiz', 'checkpunkt'];
 
-export async function syncOnce({ queue, sign, upload, insertFoto, updateFoto = async () => {} }) {
+export async function syncOnce({ queue, sign, upload, insertFoto, updateFoto = async () => {}, ensureWand = null }) {
   let erledigt = 0; let fehler = 0;
   for (const item of await queue.pending()) {
     try {
@@ -14,8 +14,14 @@ export async function syncOnce({ queue, sign, upload, insertFoto, updateFoto = a
       ]);
       await upload(urlBild, item.bild, 'image/jpeg');
       await upload(urlVorschau, item.vorschau, 'image/jpeg');
+      let zeile = d;
+      if (d.wand) { // offline aufgenommen: Wand jetzt anlegen bzw. finden
+        if (!ensureWand) throw new Error('Wand kann nicht angelegt werden');
+        const { wand, ...rest } = d;
+        zeile = { ...rest, stelle_id: (await ensureWand(wand)).id };
+      }
       try {
-        await insertFoto(d);
+        await insertFoto(zeile);
       } catch (e) {
         if (e?.code !== '23505') throw e; // 23505 = Foto existiert schon (Duplikat) → gilt als erledigt
       }

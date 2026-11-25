@@ -89,6 +89,7 @@ export function Inbox() {
 
 function WandWaehlen({ api, etage, etagen, onEtage, onWahl, onAbbruch }) {
   const [raum, setRaum] = useState(null);
+  const [meldung, setMeldung] = useState('');
   const r = useLoad(async () => (etage ? api.list('raeume', { etage_id: etage.id }) : []), [etage?.id]);
   const urls = useUrls(api, [etage?.plan_key]);
   if (!etage) return html`<p>Keine Etage angelegt.</p>`;
@@ -98,9 +99,13 @@ function WandWaehlen({ api, etage, etagen, onEtage, onWahl, onAbbruch }) {
     <p><b>${raum ? 'Wand wählen' : 'Raum wählen'}</b></p>
     <${FloorPlan} etage=${etage} planUrl=${urls[etage.plan_key]} raeume=${r.data ?? []} aktiverRaum=${raum} kopf=${kopf} ohneSchnellfoto=${true}
       onRoom=${setRaum} onWand=${async (seite) => {
-        const st = await ensureWand(api, etage, raum, seite);
-        onWahl({ ...st, name: wandTitel(raum, seite, etage.nord_grad ?? 0) });
+        setMeldung('');
+        try {
+          const st = await ensureWand(api, etage, raum, seite);
+          onWahl({ ...st, name: wandTitel(raum, seite, etage.nord_grad ?? 0) });
+        } catch { setMeldung('Keine Verbindung – die Wand kann gerade nicht angelegt werden. Bitte später einsortieren.'); }
       }} />
+    ${meldung && html`<p class="fehler" role="alert">${meldung}</p>`}
     <button onClick=${onAbbruch}>Abbrechen</button>
   </div>`;
 }

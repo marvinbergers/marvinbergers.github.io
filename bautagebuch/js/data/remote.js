@@ -1,6 +1,7 @@
 // Datenschicht gegen Supabase (Daten) und R2 (Dateien).
 import { makeSign, upload, signedUrl } from './storage.js';
 import { startSync } from './sync.js';
+import { ensureWand } from './actions.js';
 
 const TAG_MS = 86_400_000;
 // Tabellen ohne Papierkorb haben keine *_aktiv-Sicht.
@@ -40,6 +41,7 @@ export function createRemoteApi({ client, queue, me, onQueueChange = () => {} })
     syncNow: null,
   };
   client.rpc('verknuepfe_mich').then(() => {}, () => {}); // eigene Person mit dem Login verknüpfen
-  api.syncNow = startSync({ queue, sign, upload, insertFoto: (d) => api.insert('fotos', d), updateFoto: (id, p) => api.update('fotos', id, p) }, { onChange: onQueueChange });
+  api.syncNow = startSync({ queue, sign, upload, insertFoto: (d) => api.insert('fotos', d), updateFoto: (id, p) => api.update('fotos', id, p),
+        ensureWand: (w) => ensureWand(api, { id: w.etage_id, nord_grad: w.nord_grad }, { id: w.raum_id, name: w.raum_name }, w.seite) }, { onChange: onQueueChange });
   return api;
 }

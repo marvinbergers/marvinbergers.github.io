@@ -42,6 +42,8 @@ export async function preparePhoto(api, file, felder = {}) {
     tag: berlinDate(p.aufgenommenAm), key_bild: keys.bild, key_vorschau: keys.vorschau, sha256: p.sha256,
     breite: p.breite, hoehe: p.hoehe,
   };
+  // Offline aufgenommen und Wand noch nicht angelegt: Wand wird beim Hochladen nachgeholt.
+  if (felder.wand) datensatz.wand = felder.wand;
   return { typ: 'foto', fotoId: id, bild: p.bild, vorschau: p.vorschau, datensatz };
 }
 
@@ -68,10 +70,11 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
   async function anWand(etage, raum, seite, ctx) {
     const file = await pickFile();
     if (!file) return;
-    try {
-      const stelle = await ensureWand(api, etage, raum, seite);
-      await mitDatei({ ...stelle, name: wandTitel(raum, seite, etage.nord_grad ?? 0) }, { ...ctx, etage, raum, seite }, file);
-    } catch (e) { setZustand({ art: 'fehler', text: e.message }); }
+    const name = wandTitel(raum, seite, etage.nord_grad ?? 0);
+    let stelle = ctx.wandStelle ?? null;
+    if (!stelle) { try { stelle = await ensureWand(api, etage, raum, seite); } catch { stelle = null; } }
+    const wand = stelle ? null : { etage_id: etage.id, nord_grad: etage.nord_grad ?? 0, raum_id: raum.id, raum_name: raum.name, seite };
+    await mitDatei({ id: stelle?.id ?? null, name, spaeter: !stelle }, { ...ctx, wandStelle: stelle, etage, raum, seite }, file, wand);
   }
 
   async function aufStelle(stelle, ctx) {
@@ -80,11 +83,11 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
     await mitDatei(stelle, ctx, file);
   }
 
-  async function mitDatei(stelle, ctx, file) {
+  async function mitDatei(stelle, ctx, file, wand = null) {
     const gewerke = sortByFrequency(ctx.gewerke, countUsage(ctx.fotos));
     try {
       // Sofort sichern: Kamerafotos liegen oft nicht in der Galerie. Gewerk/Phase werden danach nachgetragen.
-      const d = await enqueuePhoto(api, file, { stelle_id: stelle.id, checkpunkt: ctx.checkpunkt ?? null });
+      const d = await enqueuePhoto(api, file, { stelle_id: stelle.id, checkpunkt: ctx.checkpunkt ?? null, ...(wand && { wand }) });
       setZustand({ art: 'waehlen', stelle, fotoId: d.id, ctx: { ...ctx, gewerke }, n: Date.now() });
     } catch (e) { setZustand({ art: 'fehler', text: e.message }); }
   }
@@ -124,6 +127,7 @@ export function useCapture(api, { onSaved = () => {} } = {}) {
       <button onClick=${verwerfen}>Verwerfen</button></div>`;
   } else if (zustand?.art === 'gespeichert') {
     overlay = html`<div class="dialog karte" role="status"><p>✓ Gespeichert · ${zustand.stelle.name}</p>
+      ${zustand.stelle.spaeter && html`<p class="hinweis">Kein Netz: Das Foto wird der Wand zugeordnet, sobald es hochgeladen wird.</p>`}
       <div class="knopfgitter"><button onClick=${() => setZustand(null)}>Fertig</button>
       <button class="primaer" onClick=${() => (zustand.ctx.raum
         ? anWand(zustand.ctx.etage, zustand.ctx.raum, zustand.ctx.seite, { ...zustand.ctx, checkpunkt: null })

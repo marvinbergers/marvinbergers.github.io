@@ -86,7 +86,7 @@ export function GrundrissView() {
     </div>
     ${raum && seite && html`<${WandMitFotos} api=${api} titel=${wandTitel(raum, seite, etage.nord_grad ?? 0)}
       fotos=${wandFotos.filter(passt)} alleFotos=${fotos} gewerke=${basis.data.gewerke} phasen=${basis.data.phasen} listen=${basis.data.listen}
-      onPhoto=${(extra = {}) => capture.atWand(etage, raum, seite, { gewerke: basis.data.gewerke, phasen: basis.data.phasen, fotos, ...extra })}
+      onPhoto=${(extra = {}) => capture.atWand(etage, raum, seite, { gewerke: basis.data.gewerke, phasen: basis.data.phasen, fotos, wandStelle, ...extra })}
       onClose=${() => setSeite(null)} onChanged=${() => daten.reload()} />`}
     ${capture.overlay}
   </div>`;

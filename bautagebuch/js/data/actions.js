@@ -33,3 +33,12 @@ export function ensureWand(api, etage, raum, seite) {
   }
   return laufend.get(k);
 }
+
+/** Raum löschen: Fotos seiner Wände zurück in den Eingang, Wände und Raum in den Papierkorb. */
+export async function deleteRaum(api, raum) {
+  for (const st of await api.list('stellen', { raum_id: raum.id })) {
+    for (const f of await api.list('fotos', { stelle_id: st.id })) await api.update('fotos', f.id, { stelle_id: null });
+    await api.softDelete('stellen', st.id);
+  }
+  await api.softDelete('raeume', raum.id);
+}

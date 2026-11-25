@@ -6,6 +6,7 @@ import { useLoad, useUrls, sortiert } from './hooks.js';
 import { safeName } from '../lib/keys.js';
 import { checklisten } from './Checkliste.js';
 import { normRect } from '../lib/rooms.js';
+import { deleteRaum } from '../data/actions.js';
 import { monatsArchiv } from '../data/archiv.js';
 import { blobLoader } from './Share.js';
 
@@ -141,7 +142,10 @@ function EtageKarte({ api, etage, raeume, reload }) {
           setAnhaengen(raeume.find((r) => r.id === letzter.id) ?? letzter); }}>+ weiteres Rechteck für ${letzter.name}</button>`}
       ${anhaengen && !rechteck && html`<p class="hinweis">Zweites Rechteck für ${anhaengen.name}: zwei Ecken antippen.</p>`}
       ${modus === 'raeume' && html`<${Liste} rows=${raeume} text=${(r) => (r.flaechen?.length ? r.name : `${r.name} – neu aufziehen`)}
-        onDelete=${async (r) => { await api.softDelete('raeume', r.id); reload(); }} />`}
+        onDelete=${async (r) => {
+          if (typeof confirm === 'function' && !confirm(`Raum „${r.name}“ löschen? Seine Fotos kommen in den Eingang.`)) return;
+          await deleteRaum(api, r); reload();
+        }} />`}
     </div>`}
   </div>`;
 }
